@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mood Gradient Creator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero-panel">
+      <div>
+        <h1>Mood Gradient Creator</h1>
+        <p>Create a colorful mood card with live gradient preview and preset themes.</p>
+      </div>
+      <div class="preview-card" id="previewCard">
+        <div class="preview-text" id="previewText">Your mood is a gradient.</div>
+      </div>
+    </section>
+
+    <section class="controls-panel">
+      <div class="section-header">
+        <h2>Choose your colors</h2>
+        <button id="randomButton" class="action-button">Random mood</button>
+      </div>
+
+      <div class="pickers-row">
+        <label>
+          Left color
+          <input type="color" id="color1" value="#ff7f50" />
+        </label>
+        <label>
+          Right color
+          <input type="color" id="color2" value="#6a5acd" />
+        </label>
+      </div>
+
+      <div class="mood-input">
+        <label for="moodInput">Mood message</label>
+        <input type="text" id="moodInput" placeholder="Type your feeling..." value="Your mood is a gradient." />
+      </div>
+
+      <div class="preset-buttons">
+        <button class="preset-button" data-color1="#78c7e4" data-color2="#a2d5c6" data-text="Calm ocean breeze">Calm</button>
+        <button class="preset-button" data-color1="#ffd54f" data-color2="#ff8a65" data-text="Sunny and bright">Sunny</button>
+        <button class="preset-button" data-color1="#7c4dff" data-color2="#ff80ab" data-text="Dreamy vibes">Dreamy</button>
+        <button class="preset-button" data-color1="#0d47a1" data-color2="#311b92" data-text="Night glow">Night</button>
+      </div>
+
+      <div class="css-output">
+        <label>Generated CSS</label>
+        <pre id="cssCode"></pre>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
