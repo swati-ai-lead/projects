@@ -4,6 +4,7 @@ on:
   push:
     branches: [main, master]
     paths:
+      - '.github/workflows/pages.yml'
       - '01-beginner-projects/mood-gradient-creator/**'
 
 permissions:
