@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
 const fetch = require('node-fetch');
 const serverless = require('serverless-http');
 require('dotenv').config();
@@ -7,6 +9,16 @@ require('dotenv').config();
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+function sendFile(res, filePath, contentType) {
+  const absolutePath = path.join(__dirname, '..', filePath);
+  fs.readFile(absolutePath, (error, data) => {
+    if (error) {
+      return res.status(404).send('Not found');
+    }
+    res.type(contentType).send(data);
+  });
+}
 
 function getFallbackReply(message) {
   const text = message.toLowerCase();
@@ -29,6 +41,18 @@ function getFallbackReply(message) {
 
   return 'I can help you book a waxing appointment. Tell me your preferred service or date and I will guide you.';
 }
+
+app.get('/', (req, res) => {
+  sendFile(res, 'index.html', 'html');
+});
+
+app.get('/styles.css', (req, res) => {
+  sendFile(res, 'styles.css', 'css');
+});
+
+app.get('/script.js', (req, res) => {
+  sendFile(res, 'script.js', 'js');
+});
 
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;

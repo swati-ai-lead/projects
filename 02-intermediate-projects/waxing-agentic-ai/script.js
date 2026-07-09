@@ -20,8 +20,8 @@ let selectedService = 'full body';
 let selectedDate = dates[0].date;
 
 const CHAT_API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ? 'http://localhost:3000/chat'
-  : 'https://your-public-backend-url/chat';
+  ? 'http://localhost:3000/api/chat'
+  : '/api/chat';
 
 function addMessage(text, sender = 'bot') {
   const message = document.createElement('div');
