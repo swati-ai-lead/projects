@@ -19,6 +19,10 @@ const dates = Array.from({ length: 5 }, (_, index) => {
 let selectedService = 'full body';
 let selectedDate = dates[0].date;
 
+const CHAT_API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:3000/chat'
+  : 'https://your-public-backend-url/chat';
+
 function addMessage(text, sender = 'bot') {
   const message = document.createElement('div');
   message.className = `message ${sender}`;
@@ -49,7 +53,7 @@ function updateSummary() {
 async function respondToInput(text) {
   addMessage('Thinking...', 'bot');
   try {
-    const response = await fetch('http://localhost:3000/chat', {
+    const response = await fetch(CHAT_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: text })
