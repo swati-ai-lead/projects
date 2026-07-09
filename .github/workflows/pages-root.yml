@@ -1,0 +1,47 @@
+name: Deploy Projects Gallery
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - '.github/workflows/pages-root.yml'
+      - 'index.html'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-root
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Prepare site files
+        run: |
+          mkdir -p _site
+          cp index.html _site/index.html
+          mkdir -p _site/01-beginner-projects/mood-gradient-creator
+          cp -R 01-beginner-projects/mood-gradient-creator/. _site/01-beginner-projects/mood-gradient-creator/
+          mkdir -p _site/02-intermediate-projects/waxing-agentic-ai
+          cp -R 02-intermediate-projects/waxing-agentic-ai/. _site/02-intermediate-projects/waxing-agentic-ai/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
