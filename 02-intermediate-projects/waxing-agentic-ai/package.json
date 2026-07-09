@@ -1,0 +1,15 @@
+{
+  "name": "waxing-agentic-ai",
+  "version": "1.0.0",
+  "description": "A simple AI-powered waxing appointment assistant",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0",
+    "node-fetch": "^2.6.0"
+  }
+}
