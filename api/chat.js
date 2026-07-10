@@ -2,18 +2,72 @@ const fs = require('fs');
 const https = require('https');
 const path = require('path');
 
-const PROJECT_ROOT = path.join(__dirname, '..', '02-intermediate-projects', 'waxing-agentic-ai');
+const REPO_ROOT = path.join(__dirname, '..');
 
-function sendFile(res, relativePath, contentType) {
-  const absolutePath = path.join(PROJECT_ROOT, relativePath);
+function getContentType(filePath) {
+  const extension = path.extname(filePath).toLowerCase();
+  if (extension === '.html') return 'text/html; charset=utf-8';
+  if (extension === '.css') return 'text/css; charset=utf-8';
+  if (extension === '.js') return 'application/javascript; charset=utf-8';
+  if (extension === '.json') return 'application/json; charset=utf-8';
+  if (extension === '.svg') return 'image/svg+xml';
+  if (extension === '.png') return 'image/png';
+  if (extension === '.jpg' || extension === '.jpeg') return 'image/jpeg';
+  if (extension === '.webp') return 'image/webp';
+  return 'text/plain; charset=utf-8';
+}
+
+function sendFile(res, relativePath) {
+  const absolutePath = path.join(REPO_ROOT, relativePath);
   fs.readFile(absolutePath, (error, data) => {
     if (error) {
       res.statusCode = 404;
       res.end('Not found');
       return;
     }
-    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Type', getContentType(absolutePath));
     res.end(data);
+  });
+}
+
+function sendStaticPath(res, pathname) {
+  const normalized = decodeURIComponent(pathname)
+    .replace(/^\/projects\//, '')
+    .replace(/^\//, '');
+
+  const candidatePath = normalized || 'index.html';
+  const filePath = path.join(REPO_ROOT, candidatePath);
+
+  if (!filePath.startsWith(REPO_ROOT)) {
+    res.statusCode = 403;
+    res.end('Forbidden');
+    return;
+  }
+
+  fs.stat(filePath, (error, stats) => {
+    if (!error && stats.isFile()) {
+      sendFile(res, candidatePath);
+      return;
+    }
+
+    const indexCandidate = path.join(candidatePath, 'index.html');
+    const indexPath = path.join(REPO_ROOT, indexCandidate);
+
+    if (!indexPath.startsWith(REPO_ROOT)) {
+      res.statusCode = 403;
+      res.end('Forbidden');
+      return;
+    }
+
+    fs.stat(indexPath, (indexError, indexStats) => {
+      if (!indexError && indexStats.isFile()) {
+        sendFile(res, indexCandidate);
+        return;
+      }
+
+      res.statusCode = 404;
+      res.end('Not found');
+    });
   });
 }
 
@@ -98,16 +152,9 @@ module.exports = async function handler(req, res) {
   const url = new URL(req.url, `https://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
 
-  if (req.method === 'GET' && pathname === '/') {
-    return sendFile(res, 'index.html', 'text/html; charset=utf-8');
-  }
-
-  if (req.method === 'GET' && pathname === '/styles.css') {
-    return sendFile(res, 'styles.css', 'text/css; charset=utf-8');
-  }
-
-  if (req.method === 'GET' && pathname === '/script.js') {
-    return sendFile(res, 'script.js', 'application/javascript; charset=utf-8');
+  if (req.method === 'GET') {
+    sendStaticPath(res, pathname);
+    return;
   }
 
   if (req.method === 'POST' && (pathname === '/api/chat' || pathname === '/chat')) {
