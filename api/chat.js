@@ -1,4 +1,5 @@
 const fs = require('fs');
+const https = require('https');
 const path = require('path');
 
 const PROJECT_ROOT = path.join(__dirname, '..', '02-intermediate-projects', 'waxing-agentic-ai');
@@ -31,6 +32,66 @@ function getFallbackReply(message) {
     return 'We currently have openings on Monday, Wednesday, and Friday this week. I can help you choose one.';
   }
   return 'I can help you book a waxing appointment. Tell me your preferred service or date and I will guide you.';
+}
+
+async function getModelReply(prompt, timeoutMs) {
+  const payload = JSON.stringify({
+    model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
+    max_tokens: 180,
+    messages: [{ role: 'user', content: prompt }]
+  });
+
+  return new Promise((resolve) => {
+    let completed = false;
+    const finish = (value) => {
+      if (!completed) {
+        completed = true;
+        resolve(value);
+      }
+    };
+
+    const request = https.request(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+          'HTTP-Referer': 'https://github.com/swati-ai-lead/projects',
+          'X-Title': 'Waxing Agentic AI'
+        }
+      },
+      (response) => {
+        let raw = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => {
+          raw += chunk;
+        });
+        response.on('end', () => {
+          if (response.statusCode < 200 || response.statusCode >= 300) {
+            return finish(null);
+          }
+
+          try {
+            const data = JSON.parse(raw);
+            return finish(data?.choices?.[0]?.message?.content || null);
+          } catch (error) {
+            return finish(null);
+          }
+        });
+      }
+    );
+
+    request.on('error', () => finish(null));
+    request.setTimeout(timeoutMs, () => {
+      request.destroy();
+      finish(null);
+    });
+
+    request.write(payload);
+    request.end();
+  });
 }
 
 module.exports = async function handler(req, res) {
@@ -66,28 +127,13 @@ module.exports = async function handler(req, res) {
           return;
         }
 
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://github.com/swati-ai-lead/projects',
-            'X-Title': 'Waxing Agentic AI'
-          },
-          body: JSON.stringify({
-            model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
-            messages: [{ role: 'user', content: prompt }]
-          })
-        });
-
-        const data = await response.json();
-        const reply = data?.choices?.[0]?.message?.content || 'I can help you book a waxing appointment.';
+        const timeoutMs = Number(process.env.OPENROUTER_TIMEOUT_MS || 5000);
+        const reply = await getModelReply(prompt, timeoutMs);
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ reply }));
+        res.end(JSON.stringify({ reply: reply || getFallbackReply(message) }));
       } catch (error) {
-        res.statusCode = 500;
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ reply: 'I am having trouble reaching the assistant right now. Please try again in a moment.' }));
+        res.end(JSON.stringify({ reply: getFallbackReply('') }));
       }
     });
     return;
