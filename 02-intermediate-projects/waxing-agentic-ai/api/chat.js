@@ -21,7 +21,7 @@ function sendFile(res, filePath, contentType) {
 }
 
 function getFallbackReply(message) {
-  const text = message.toLowerCase();
+  const text = (message || '').toLowerCase();
 
   if (text.includes('brazilian') || text.includes('bikini')) {
     return 'I can help with a Brazilian or bikini wax. The next openings are Thursday at 2 PM and Friday at 4 PM.';
@@ -68,6 +68,11 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
+    // Keep upstream latency under Vercel limits to avoid function timeouts.
+    const timeoutMs = Number(process.env.OPENROUTER_TIMEOUT_MS || 9000);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -78,15 +83,22 @@ app.post('/api/chat', async (req, res) => {
       },
       body: JSON.stringify({
         model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
+        max_tokens: 180,
         messages: [{ role: 'user', content: prompt }]
-      })
+      }),
+      signal: controller.signal
     });
+    clearTimeout(timer);
+
+    if (!response.ok) {
+      return res.json({ reply: getFallbackReply(message) });
+    }
 
     const data = await response.json();
     const reply = data?.choices?.[0]?.message?.content || 'I can help you book a waxing appointment.';
     return res.json({ reply });
   } catch (error) {
-    return res.status(500).json({ reply: 'I am having trouble reaching the assistant right now. Please try again in a moment.' });
+    return res.json({ reply: getFallbackReply(message) });
   }
 });
 
