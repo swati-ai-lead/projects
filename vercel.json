@@ -1,5 +1,19 @@
 {
   "version": 2,
+  "builds": [
+    {
+      "src": "api/chat.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "index.html",
+          "01-beginner-projects/**",
+          "02-intermediate-projects/**",
+          "03-advanced-projects/**"
+        ]
+      }
+    }
+  ],
   "routes": [
     {
       "src": "/(.*)",
