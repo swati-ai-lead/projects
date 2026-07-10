@@ -21,7 +21,7 @@ let selectedDate = dates[0].date;
 
 const CHAT_API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? 'http://localhost:3000/api/chat'
-  : '/api/chat';
+  : 'https://projects-vt6a.vercel.app/api/chat';
 
 function addMessage(text, sender = 'bot') {
   const message = document.createElement('div');

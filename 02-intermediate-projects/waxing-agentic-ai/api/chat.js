@@ -1,24 +1,5 @@
-const express = require('express');
-const cors = require('cors');
 const https = require('https');
-const path = require('path');
-const fs = require('fs');
-const serverless = require('serverless-http');
 require('dotenv').config();
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-function sendFile(res, filePath, contentType) {
-  const absolutePath = path.join(__dirname, '..', filePath);
-  fs.readFile(absolutePath, (error, data) => {
-    if (error) {
-      return res.status(404).send('Not found');
-    }
-    res.type(contentType).send(data);
-  });
-}
 
 function getFallbackReply(message) {
   const text = (message || '').toLowerCase();
@@ -102,43 +83,57 @@ async function getModelReply(prompt, timeoutMs) {
   });
 }
 
-app.get('/', (req, res) => {
-  sendFile(res, 'index.html', 'html');
-});
+function sendJson(res, statusCode, payload) {
+  res.statusCode = statusCode;
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify(payload));
+}
 
-app.get('/styles.css', (req, res) => {
-  sendFile(res, 'styles.css', 'css');
-});
-
-app.get('/script.js', (req, res) => {
-  sendFile(res, 'script.js', 'js');
-});
-
-app.post('/api/chat', async (req, res) => {
-  const { message } = req.body;
-
-  if (!message) {
-    return res.status(400).json({ error: 'Message is required.' });
+module.exports = async function handler(req, res) {
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.end();
+    return;
   }
 
-  const prompt = `You are a polished beauty booking assistant for a waxing salon. Help the user book or plan an appointment with short, friendly, practical guidance. Prefer specific recommendations, ask one clarifying question if needed, and keep replies to 1-3 sentences. User asks: ${message}`;
-
-  if (!process.env.OPENROUTER_API_KEY) {
-    return res.json({ reply: getFallbackReply(message) });
+  if (req.method !== 'POST') {
+    sendJson(res, 404, { error: 'Not found' });
+    return;
   }
 
-  try {
-    const timeoutMs = Number(process.env.OPENROUTER_TIMEOUT_MS || 5000);
-    const reply = await getModelReply(prompt, timeoutMs);
+  let body = '';
+  req.on('data', (chunk) => {
+    body += chunk;
+  });
 
-    if (!reply) {
-      return res.json({ reply: getFallbackReply(message) });
+  req.on('end', async () => {
+    try {
+      const parsed = body ? JSON.parse(body) : {};
+      const message = parsed.message;
+
+      if (!message) {
+        sendJson(res, 400, { error: 'Message is required.' });
+        return;
+      }
+
+      const prompt = `You are a polished beauty booking assistant for a waxing salon. Help the user book or plan an appointment with short, friendly, practical guidance. Prefer specific recommendations, ask one clarifying question if needed, and keep replies to 1-3 sentences. User asks: ${message}`;
+
+      if (!process.env.OPENROUTER_API_KEY) {
+        sendJson(res, 200, { reply: getFallbackReply(message) });
+        return;
+      }
+
+      const timeoutMs = Number(process.env.OPENROUTER_TIMEOUT_MS || 5000);
+      const reply = await getModelReply(prompt, timeoutMs);
+      sendJson(res, 200, { reply: reply || getFallbackReply(message) });
+    } catch (error) {
+      sendJson(res, 200, { reply: getFallbackReply('') });
     }
-
-    return res.json({ reply });
-  } catch (error) {
-    return res.json({ reply: getFallbackReply(message) });
-  }
-});
-
-module.exports = serverless(app);
+  });
+};
