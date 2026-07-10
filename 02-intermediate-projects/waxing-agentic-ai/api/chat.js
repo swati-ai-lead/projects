@@ -42,6 +42,30 @@ function getFallbackReply(message) {
   return 'I can help you book a waxing appointment. Tell me your preferred service or date and I will guide you.';
 }
 
+async function getModelReply(prompt) {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://github.com/swati-ai-lead/projects',
+      'X-Title': 'Waxing Agentic AI'
+    },
+    body: JSON.stringify({
+      model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
+      max_tokens: 180,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = await response.json();
+  return data?.choices?.[0]?.message?.content || null;
+}
+
 app.get('/', (req, res) => {
   sendFile(res, 'index.html', 'html');
 });
@@ -68,34 +92,16 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
-    // Keep upstream latency under Vercel limits to avoid function timeouts.
-    const timeoutMs = Number(process.env.OPENROUTER_TIMEOUT_MS || 9000);
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timeoutMs = Number(process.env.OPENROUTER_TIMEOUT_MS || 7000);
+    const reply = await Promise.race([
+      getModelReply(prompt),
+      new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs))
+    ]);
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://github.com/swati-ai-lead/projects',
-        'X-Title': 'Waxing Agentic AI'
-      },
-      body: JSON.stringify({
-        model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
-        max_tokens: 180,
-        messages: [{ role: 'user', content: prompt }]
-      }),
-      signal: controller.signal
-    });
-    clearTimeout(timer);
-
-    if (!response.ok) {
+    if (!reply) {
       return res.json({ reply: getFallbackReply(message) });
     }
 
-    const data = await response.json();
-    const reply = data?.choices?.[0]?.message?.content || 'I can help you book a waxing appointment.';
     return res.json({ reply });
   } catch (error) {
     return res.json({ reply: getFallbackReply(message) });
