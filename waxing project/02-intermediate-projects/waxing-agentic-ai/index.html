@@ -17,10 +17,11 @@
         <div class="hero-card">
           <h2>Today’s availability</h2>
           <ul>
-            <li>Full body: 2 slots</li>
-            <li>Brazilian: 3 slots</li>
-            <li>Laser touch-up: 1 slot</li>
+            <li><span>Full body</span><strong>2 slots</strong></li>
+            <li><span>Brazilian</span><strong>3 slots</strong></li>
+            <li><span>Laser touch-up</span><strong>1 slot</strong></li>
           </ul>
+          <div class="service-picker" id="servicePicker" aria-label="Choose a service"></div>
         </div>
       </header>
 
@@ -39,10 +40,33 @@
 
         <section class="calendar-panel">
           <div class="panel-header">
-            <h2>Booking calendar</h2>
-            <span class="pill">Next 5 days</span>
+            <div class="calendar-title-group">
+              <h2>Booking calendar</h2>
+              <span class="pill" id="selectedMonthLabel">Month</span>
+            </div>
+            <div class="calendar-nav">
+              <button type="button" class="nav-btn" id="prevMonthBtn" aria-label="Previous month">←</button>
+              <button type="button" class="nav-btn" id="nextMonthBtn" aria-label="Next month">→</button>
+            </div>
           </div>
-          <div class="calendar-grid" id="calendarGrid"></div>
+
+          <div class="weekday-row" aria-label="Weekdays">
+            <span>Sun</span>
+            <span>Mon</span>
+            <span>Tue</span>
+            <span>Wed</span>
+            <span>Thu</span>
+            <span>Fri</span>
+            <span>Sat</span>
+          </div>
+
+          <div class="calendar-grid" id="calendarGrid" aria-live="polite"></div>
+
+          <div class="slot-panel">
+            <h3>Available time slots</h3>
+            <div class="time-slot-grid" id="slotGrid"></div>
+          </div>
+
           <div class="summary" id="bookingSummary">Select a service and date to preview your appointment.</div>
         </section>
       </main>
