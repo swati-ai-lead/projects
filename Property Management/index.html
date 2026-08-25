@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#214e5c" />
+  <title>1179 Bush St | Property Management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#overview" aria-label="1179 Bush St dashboard">
+        <span class="brand-mark">B</span>
+        <span>1179 Bush St<small>PROPERTY LEDGER</small></span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a class="nav-link active" href="#overview" data-view="overview"><span>01</span> Overview</a>
+        <a class="nav-link" href="#rent" data-view="rent"><span>02</span> Rent ledger</a>
+        <a class="nav-link" href="#maintenance" data-view="maintenance"><span>03</span> Maintenance</a>
+        <a class="nav-link" href="#utilities" data-view="utilities"><span>04</span> Utilities</a>
+        <a class="nav-link" href="#expenses" data-view="expenses"><span>05</span> Expenses</a>
+        <a class="nav-link" href="#history" data-view="history"><span>06</span> History</a>
+        <a class="nav-link" href="#tenants" data-view="tenants"><span>07</span> Tenants</a>
+      </nav>
+      <p class="sidebar-note">A quiet record of the work that keeps a home running.</p>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div><p class="eyebrow" id="today"></p><h1 id="page-title">Property overview</h1></div>
+        <div class="account-tools"><span id="account-label"></span><button class="icon-button" id="export-button" aria-label="Export records" title="Export records">&#8595;</button><button class="small-button" id="sign-out-button">Sign out</button></div>
+      </header>
+
+      <section class="view active" id="overview">
+        <div class="hero-copy"><p class="eyebrow">CURRENT MONTH</p><h2>Your two-unit<br />operating picture.</h2></div>
+        <div class="metric-grid">
+          <article class="metric-card featured"><p>Cash collected</p><strong id="collected-total">$0</strong><span id="collection-note">0 of 2 units recorded</span></article>
+          <article class="metric-card"><p>Monthly rent due</p><strong id="due-total">$0</strong><span>Across both units</span></article>
+          <article class="metric-card"><p>Open maintenance</p><strong id="open-maintenance">0</strong><span>Items needing attention</span></article>
+          <article class="metric-card"><p>Month expenses</p><strong id="expense-total">$0</strong><span>Supplies and utilities</span></article>
+        </div>
+        <div class="unit-header"><div><p class="eyebrow">RENT STATUS</p><h3>Two homes, one clear view.</h3></div><a class="text-link" href="#rent" data-view="rent">Open ledger &#8594;</a></div>
+        <div class="unit-grid" id="unit-cards"></div>
+        <div class="split-section"><section><div class="section-heading"><div><p class="eyebrow">UP NEXT</p><h3>Maintenance queue</h3></div><a class="text-link" href="#maintenance" data-view="maintenance">View all &#8594;</a></div><div class="list" id="overview-maintenance"></div></section><section><div class="section-heading"><div><p class="eyebrow">SERVICE BILLS</p><h3>Utilities snapshot</h3></div><a class="text-link" href="#utilities" data-view="utilities">Manage &#8594;</a></div><div class="list" id="overview-utilities"></div></section></div>
+      </section>
+
+      <section class="view" id="rent">
+        <div class="page-intro"><p class="eyebrow">CASH PAYMENTS</p><h2>Rent ledger</h2><p>Record cash as it is received. Changes are saved in this browser.</p></div>
+        <div class="history-controls"><label>Month<input id="rent-month" type="month" /></label></div>
+        <div class="table-wrap"><table><thead><tr><th>Unit</th><th>Monthly rent</th><th>Received</th><th>Method</th><th>Status</th><th></th></tr></thead><tbody id="rent-table"></tbody></table></div>
+      </section>
+
+      <section class="view" id="maintenance">
+        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">REPAIRS &amp; UPKEEP</p><h2>Maintenance</h2><p>Track requests from first note to completed work.</p></div><button class="primary-button" data-open-modal="maintenance">+ New request</button></div>
+        <div class="maintenance-grid" id="maintenance-list"></div>
+      </section>
+
+      <section class="view" id="utilities">
+        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">MONTHLY SERVICES</p><h2>Utilities</h2><p>PECO, WiFi, trash, sewer, and water in one place.</p></div><button class="primary-button" data-open-modal="utility">+ Add bill</button></div>
+        <div class="history-controls"><label>Month<input id="utility-month" type="month" /></label></div>
+        <div class="utility-grid" id="utility-list"></div>
+      </section>
+
+      <section class="view" id="history">
+        <div class="page-intro"><p class="eyebrow">MONTHLY ARCHIVE</p><h2>Rent &amp; utility history</h2><p>Review and correct the records for each completed month.</p></div>
+        <div class="history-controls"><label>Month<select id="history-month"></select></label></div>
+        <div class="history-section"><p class="eyebrow">RENT</p><div class="table-wrap"><table><thead><tr><th>Unit</th><th>Monthly rent</th><th></th></tr></thead><tbody id="history-rent-table"></tbody></table></div></div>
+        <div class="history-section"><p class="eyebrow">UTILITIES</p><div class="table-wrap"><table><thead><tr><th>Service</th><th>Amount</th><th>Due</th><th>Status</th><th></th></tr></thead><tbody id="history-utility-table"></tbody></table></div></div>
+      </section>
+
+      <section class="view" id="tenants">
+        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">OCCUPANCY &amp; LEASES</p><h2>Tenants</h2><p>Keep tenant contacts and lease terms paired with the correct unit.</p></div><button class="primary-button" data-open-modal="tenant">+ Add tenant</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Unit</th><th>Tenant</th><th>Contact</th><th>Lease term</th><th>Monthly lease</th><th>PECO share</th><th>Water share</th><th>Status</th><th></th></tr></thead><tbody id="tenant-table"></tbody></table></div>
+      </section>
+
+      <section class="view" id="expenses">
+        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">OPERATING COSTS</p><h2>Expenses</h2><p>Keep receipts and supply purchases accounted for.</p></div><button class="primary-button" data-open-modal="expense">+ Add expense</button></div>
+        <div class="expense-summary"><span>SUPPLIES THIS MONTH</span><strong id="supplies-total">$0</strong></div>
+        <div class="table-wrap"><table><thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th><th></th></tr></thead><tbody id="expense-table"></tbody></table></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="entry-modal"><form id="entry-form"><div class="modal-top"><div><p class="eyebrow" id="modal-eyebrow">NEW ENTRY</p><h3 id="modal-title"></h3></div><button class="icon-button" type="button" data-close-modal aria-label="Close">&#215;</button></div><div id="form-fields"></div><div class="modal-actions"><button class="quiet-button" type="button" data-close-modal>Cancel</button><button class="primary-button" id="save-entry" type="submit">Save entry</button></div></form></dialog>
+  <section class="auth-screen" id="auth-screen" aria-labelledby="auth-title"><div class="auth-card"><span class="brand-mark">B</span><p class="eyebrow">1179 BUSH ST</p><h2 id="auth-title">Property access</h2><p id="auth-message">Sign in to open the property ledger.</p><form id="auth-form"><label>Email<input id="auth-email" type="email" autocomplete="email" required placeholder="you@example.com" /></label><label>Password<input id="auth-password" type="password" autocomplete="current-password" required placeholder="Your password" /></label><p class="form-message" id="password-guidance">Use at least 12 characters, including uppercase, lowercase, a number, and a symbol.</p><button class="primary-button" id="auth-submit" type="submit">Sign in</button></form><button class="text-button" id="auth-mode-button" type="button">Create a user account</button><p class="auth-note">Only <strong>sushmit.gujar@gmail.com</strong> can create the administrator account. All other accounts are view-only.</p></div></section>
+  <script type="module" src="script.js"></script>
+</body>
+</html>
