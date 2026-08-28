@@ -54,7 +54,7 @@ function renderHistory() {
   select.value = selected;
   const rents = state.rentHistory.filter(item => item.month === selected);
   const utilities = state.utilityHistory.filter(item => item.month === selected);
-  document.querySelector("#history-rent-table").innerHTML = rents.map(item => `<tr><td>${item.unit_name}</td><td>${isAdmin ? inlineAmount("rent-history", item.id, item.rent) : money(item.rent)}</td><td></td></tr>`).join("") || "<tr><td colspan='3'>No rent records for this month.</td></tr>";
+  document.querySelector("#history-rent-table").innerHTML = rents.map(item => `<tr><td>${item.unit_name}</td><td>${money(item.rent)}</td><td>${isAdmin ? `<button class="small-button" data-edit-rent-history="${item.id}">Edit</button>` : ""}</td></tr>`).join("") || "<tr><td colspan='3'>No rent records for this month.</td></tr>";
   document.querySelector("#history-utility-table").innerHTML = utilities.map(item => `<tr><td>${item.service}</td><td>${money(item.amount)}</td><td>${item.due}</td><td><span class="status ${item.paid ? "paid" : ""}">${item.paid ? "Paid" : "Unpaid"}</span></td><td>${isAdmin ? `<button class="small-button" data-edit-utility-history="${item.id}">Edit</button>` : ""}</td></tr>`).join("") || "<tr><td colspan='5'>No utility records for this month.</td></tr>";
 }
 function renderUnits() {
@@ -88,30 +88,6 @@ function leaseTermsFor(tenant) {
   extras.forEach(term => add(term.start, term.end));
   return terms.sort((a, b) => b.start.localeCompare(a.start));
 }
-function inlineAmount(kind, id, value) { return `<div class="inline-edit"><input class="inline-amount" type="number" min="0" step="0.01" value="${Number(value || 0)}" data-amount-for="${kind}-${id}"><button class="small-button" data-save-amount="${kind}" data-save-id="${id}">Save</button></div>`; }
-async function saveInlineAmount(kind, id) {
-  const input = document.querySelector(`[data-amount-for="${kind}-${id}"]`);
-  const amount = Number(input.value);
-  if (!Number.isFinite(amount) || amount < 0) { alert("Enter a valid amount."); return; }
-  if (kind === "rent-history") {
-    const { error } = await supabase.from("rent_history").update({ rent: amount }).eq("id", id);
-    if (error) { alert(error.message); return; }
-    const record = state.rentHistory.find(entry => entry.id === id);
-    if (record?.month === monthKey) await supabase.from("units").update({ rent: amount }).eq("id", record.unit_id);
-  } else {
-    const tenant = state.tenants.find(entry => entry.id === id);
-    const unit = state.units.find(entry => entry.id === tenant.unit_id);
-    const month = selectedTenantMonth();
-    const existing = state.rentHistory.find(entry => entry.month === month && entry.unit_id === tenant.unit_id);
-    const { error } = await supabase.from("rent_history").upsert({ month, unit_id: tenant.unit_id, unit_name: unit?.name || tenant.unit_name, rent: amount, paid: existing?.paid || false, received: existing?.received || "" }, { onConflict: "month,unit_id" });
-    if (error) { alert(error.message); return; }
-    if (month === monthKey) {
-      await supabase.from("tenants").update({ monthly_rent: amount }).eq("id", tenant.id);
-      await supabase.from("units").update({ rent: amount }).eq("id", tenant.unit_id);
-    }
-  }
-  await loadData();
-}
 function renderTenants() {
   const select = document.querySelector("#tenant-month");
   const months = ledgerMonths();
@@ -136,7 +112,7 @@ function renderTenants() {
       <td><strong>${item.unit_name}</strong><br><small class="status ${item.status === "Active" ? "paid" : ""}">${item.status}</small></td>
       <td><strong>${item.full_name}</strong><br><small>${item.email || "-"}</small><br><small>${item.phone || "-"}</small></td>
       <td>${leaseCell}</td>
-      <td>${isAdmin ? inlineAmount("tenant-rent", item.id, rent) : money(rent)}</td>
+      <td>${money(rent)}${isAdmin ? `<br><button class="small-button" data-edit-rent="${item.id}">Edit</button>` : ""}</td>
       <td><span class="status ${paid ? "paid" : ""}">${paid ? "Received" : "Pending"}</span><br><small>${received || "Cash"}</small>${isAdmin ? `<br><button class="small-button" data-rent-id="${item.unit_id}">${paid ? "Undo" : "Record cash"}</button>` : ""}</td>
       <td>${peco === null ? "-" : `${money(peco / 4)}<br><small>bill / 4</small>`}</td>
       <td>${water === null ? "-" : `${money(water / 4)}<br><small>bill / 4</small>`}</td>
@@ -211,6 +187,8 @@ function setAuthMode(mode) {
 const modal = document.querySelector("#entry-modal");
 function openModal(type) {
   const forms = {
+    rent: { title: "Edit monthly rent", fields: `<div class="form-grid"><label>Monthly rent<input name="rent" type="number" min="0" step="0.01" required></label></div>` },
+    rentHistory: { title: "Correct rent history", fields: `<div class="form-grid"><label>Monthly rent<input name="rent" type="number" min="0" step="0.01" required></label></div>` },
     utilityEdit: { title: "Edit utility bill", fields: `<div class="form-grid"><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label></div>` },
     utilityHistory: { title: "Correct utility history", fields: `<div class="form-grid"><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label></div>` },
     tenant: { title: "Tenant and lease", fields: `<div class="form-grid"><label>Unit<select name="unit_id" required>${state.units.map(item => `<option value="${item.id}">${item.name}</option>`).join("")}</select></label><label>Tenant name<input name="full_name" required></label><label>Email<input name="email" type="email"></label><label>Phone<input name="phone" type="tel"></label><label>Lease start<input name="lease_start" type="date" required></label><label>Lease end<input name="lease_end" type="date" required></label><label>Monthly lease<input name="monthly_rent" type="number" min="0" step="0.01" required></label><label>Status<select name="status"><option>Active</option><option>Upcoming</option><option>Ended</option></select></label><label class="full">Lease PDF<input name="lease_file" type="file" accept="application/pdf"></label></div>` },
@@ -252,12 +230,13 @@ document.addEventListener("click", async event => {
   if (!isAdmin) return;
   const modalButton = event.target.closest("[data-open-modal]"); if (modalButton) openModal(modalButton.dataset.openModal);
   const editUtility = event.target.closest("[data-edit-utility]"); if (editUtility) { const item = state.utilities.find(entry => entry.id === editUtility.dataset.editUtility); const record = state.utilityHistory.find(entry => entry.month === selectedUtilityMonth() && entry.utility_id === item.id); openModal("utilityEdit"); document.querySelector("[name=amount]").value = record ? record.amount : item.amount; document.querySelector("#entry-form").dataset.id = item.id; }
+  const editRent = event.target.closest("[data-edit-rent]"); if (editRent) { const tenant = state.tenants.find(entry => entry.id === editRent.dataset.editRent); const record = state.rentHistory.find(entry => entry.month === selectedTenantMonth() && entry.unit_id === tenant.unit_id); openModal("rent"); document.querySelector("[name=rent]").value = record ? record.rent : tenant.monthly_rent; document.querySelector("#entry-form").dataset.id = tenant.id; }
+  const editRentHistory = event.target.closest("[data-edit-rent-history]"); if (editRentHistory) { const item = state.rentHistory.find(entry => entry.id === editRentHistory.dataset.editRentHistory); openModal("rentHistory"); document.querySelector("[name=rent]").value = item.rent; document.querySelector("#entry-form").dataset.id = item.id; }
   const editUtilityHistory = event.target.closest("[data-edit-utility-history]"); if (editUtilityHistory) { const item = state.utilityHistory.find(entry => entry.id === editUtilityHistory.dataset.editUtilityHistory); openModal("utilityHistory"); document.querySelector("[name=amount]").value = item.amount; document.querySelector("#entry-form").dataset.id = item.id; }
   const editTenant = event.target.closest("[data-edit-tenant]"); if (editTenant) { const item = state.tenants.find(entry => entry.id === editTenant.dataset.editTenant); openModal("tenant"); Object.entries(item).forEach(([key, value]) => { const input = document.querySelector(`[name=${key}]`); if (input) input.value = value || ""; }); document.querySelector("#entry-form").dataset.id = item.id; document.querySelector("#entry-form").dataset.leaseDocument = item.lease_document || ""; }
   const copyReminder = event.target.closest("[data-copy-reminder]"); if (copyReminder) { const tenant = state.tenants.find(item => item.id === copyReminder.dataset.copyReminder); const reminder = tenantReminder(tenant); try { await navigator.clipboard.writeText(reminder); alert(`Reminder copied for ${tenant.full_name}. Paste it into a text message to ${tenant.phone}.`); } catch { prompt(`Copy this reminder for ${tenant.full_name}:`, reminder); } }
   const emailReminder = event.target.closest("[data-email-reminder]"); if (emailReminder) { const tenant = state.tenants.find(item => item.id === emailReminder.dataset.emailReminder); const status = document.querySelector("#reminder-status"); status.textContent = "Sending email reminder..."; try { const response = await fetch("/api/send-reminder", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ tenantId:tenant.id, accessToken:session.access_token }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to send reminder."); status.textContent = `Email reminder sent to ${tenant.email}.`; } catch (error) { status.textContent = error.message; } }
   const rentButton = event.target.closest("[data-rent-id]"); if (rentButton) { const item = state.units.find(entry => entry.id === rentButton.dataset.rentId); const month = selectedTenantMonth(); const existing = state.rentHistory.find(entry => entry.month === month && entry.unit_id === item.id); const paid = !(existing ? existing.paid : month === monthKey && item.paid); const received = paid ? new Intl.DateTimeFormat("en-US", { month:"short", day:"numeric", year:"numeric" }).format(new Date()) : ""; const { error } = await supabase.from("rent_history").upsert({ month, unit_id:item.id, unit_name:item.name, rent:existing ? existing.rent : item.rent, paid, received }, { onConflict:"month,unit_id" }); if (error) alert(error.message); else { if (month === monthKey) await supabase.from("units").update({ paid, received }).eq("id", item.id); await loadData(); } }
-  const saveAmount = event.target.closest("[data-save-amount]"); if (saveAmount) { await saveInlineAmount(saveAmount.dataset.saveAmount, saveAmount.dataset.saveId); }
   const maintenanceButton = event.target.closest("[data-maintenance-id]"); if (maintenanceButton) { const item = state.maintenance.find(entry => entry.id === maintenanceButton.dataset.maintenanceId); const { error } = await supabase.from("maintenance").update({ done: !item.done }).eq("id", item.id); if (error) alert(error.message); else await loadData(); }
   const utilityButton = event.target.closest("[data-utility-id]"); if (utilityButton) { const item = state.utilities.find(entry => entry.id === utilityButton.dataset.utilityId); const month = selectedUtilityMonth(); const existing = state.utilityHistory.find(entry => entry.month === month && entry.utility_id === item.id); const paid = !(existing ? existing.paid : month === monthKey && item.paid); const due = monthEndDue(month); const { error } = await supabase.from("utility_history").upsert({ month, utility_id:item.id, service:item.service, amount:existing ? existing.amount : item.amount, due, paid }, { onConflict:"month,utility_id" }); if (error) alert(error.message); else { if (month === monthKey) await supabase.from("utilities").update({ paid, due }).eq("id", item.id); await loadData(); } }
   const deleteButton = event.target.closest("[data-delete-expense]"); if (deleteButton) { const { error } = await supabase.from("expenses").delete().eq("id", deleteButton.dataset.deleteExpense); if (error) alert(error.message); else await loadData(); }
@@ -273,7 +252,6 @@ document.addEventListener("change", async event => {
   const { error } = await supabase.from("tenants").update({ lease_start, lease_end }).eq("id", leaseSelect.dataset.leaseTenant);
   if (error) alert(error.message); else await loadData();
 });
-document.addEventListener("keydown", event => { if (event.key === "Enter" && event.target.classList.contains("inline-amount")) { event.preventDefault(); event.target.closest(".inline-edit")?.querySelector("[data-save-amount]")?.click(); } });
 document.querySelectorAll("[data-close-modal]").forEach(button => button.addEventListener("click", () => modal.close()));
 document.querySelector("#entry-form").addEventListener("submit", async event => {
   const form = event.target; event.preventDefault();
@@ -302,6 +280,25 @@ document.querySelector("#entry-form").addEventListener("submit", async event => 
     const { error } = await supabase.from("utility_history").upsert({ month, utility_id:id, service:utility.service, amount:updates.amount, due, paid:existing?.paid || false }, { onConflict:"month,utility_id" });
     if (error) { alert(error.message); return; }
     if (month === monthKey) await supabase.from("utilities").update({ ...updates, due }).eq("id", id);
+    modal.close(); await loadData(); return;
+  }
+  if (type === "rent") {
+    const tenant = state.tenants.find(item => item.id === form.dataset.id);
+    const unit = state.units.find(item => item.id === tenant.unit_id);
+    const month = selectedTenantMonth();
+    const existing = state.rentHistory.find(entry => entry.month === month && entry.unit_id === tenant.unit_id);
+    const rent = Number(data.get("rent"));
+    const { error } = await supabase.from("rent_history").upsert({ month, unit_id:tenant.unit_id, unit_name:unit?.name || tenant.unit_name, rent, paid:existing?.paid || false, received:existing?.received || "" }, { onConflict:"month,unit_id" });
+    if (error) { alert(error.message); return; }
+    if (month === monthKey) { await supabase.from("tenants").update({ monthly_rent: rent }).eq("id", tenant.id); await supabase.from("units").update({ rent }).eq("id", tenant.unit_id); }
+    modal.close(); await loadData(); return;
+  }
+  if (type === "rentHistory") {
+    const record = state.rentHistory.find(item => item.id === form.dataset.id);
+    const rent = Number(data.get("rent"));
+    const { error } = await supabase.from("rent_history").update({ rent }).eq("id", form.dataset.id);
+    if (error) { alert(error.message); return; }
+    if (record?.month === monthKey) await supabase.from("units").update({ rent }).eq("id", record.unit_id);
     modal.close(); await loadData(); return;
   }
   if (type === "utilityHistory") {
