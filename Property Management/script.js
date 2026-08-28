@@ -50,6 +50,19 @@ function renderHistory() {
 function renderExpenses() { const supplies = state.expenses.filter(item => item.category === "Supplies").reduce((sum, item) => sum + Number(item.amount), 0); document.querySelector("#supplies-total").textContent = money(supplies); document.querySelector("#expense-table").innerHTML = state.expenses.map(item => `<tr><td>${item.date}</td><td><span class="status paid">${item.category}</span></td><td>${item.description}</td><td>${money(item.amount)}</td><td>${isAdmin ? `<button class="small-button" data-delete-expense="${item.id}">Delete</button>` : ""}</td></tr>`).join(""); }
 function tenantReminder(tenant) { const pending = state.utilities.filter(item => !item.paid).map(item => `${item.service} ${money(item.amount)}`).join(", "); return `1179 Bush St reminder: your monthly rent is ${money(tenant.monthly_rent)}. Pending property utilities: ${pending || "none"}.`; }
 function renderTenants() { const peco = state.utilities.find(item => item.service === "PECO"); const water = state.utilities.find(item => item.service === "Water"); const trash = state.utilities.find(item => item.service === "Trash"); const sewer = state.utilities.find(item => item.service === "Sewer"); document.querySelector("#tenant-table").innerHTML = state.tenants.map(item => `<tr><td><strong>${item.unit_name}</strong></td><td>${item.full_name}</td><td>${item.email || "-"}</td><td>${item.phone || "-"}</td><td>${item.lease_start} to ${item.lease_end}</td><td>${money(item.monthly_rent)}</td><td>${peco ? `${money(Number(peco.amount) / 4)}<br><small>PECO bill / 4</small>` : "-"}</td><td>${water ? `${money(Number(water.amount) / 4)}<br><small>Water bill / 4</small>` : "-"}</td><td>${trash ? money(trash.amount) : "-"}</td><td>${sewer ? money(sewer.amount) : "-"}</td><td><span class="status ${item.status === "Active" ? "paid" : ""}">${item.status}</span></td><td><div class="tenant-actions">${item.lease_url ? `<a class="text-link" href="${item.lease_url}" target="_blank" rel="noreferrer">View lease</a>` : ""}${isAdmin ? `<button class="small-button" data-edit-tenant="${item.id}">Edit</button>${item.phone ? `<button class="small-button" data-copy-reminder="${item.id}">Copy reminder</button>` : ""}${item.email ? `<button class="small-button" data-email-reminder="${item.id}">Send email</button>` : ""}` : ""}</div></td></tr>`).join("") || "<tr><td colspan='12'>No tenants have been added yet.</td></tr>"; }
+function syncTenantRentWithUnit(tenant) {
+  if (!tenant || !tenant.unit_id) return;
+  const rent = Number(tenant.monthly_rent || 0);
+  state.units = state.units.map(unit => unit.id === tenant.unit_id ? { ...unit, tenant: tenant.full_name || unit.tenant, rent } : unit);
+  state.rentHistory = state.rentHistory.map(record => record.unit_id === tenant.unit_id && record.month === monthKey ? { ...record, rent } : record);
+}
+function syncTenantRentsToUnits() {
+  state.units = state.units.map(unit => {
+    const tenant = state.tenants.find(item => item.unit_id === unit.id);
+    if (!tenant) return unit;
+    return { ...unit, tenant: tenant.full_name || unit.tenant, rent: Number(tenant.monthly_rent || unit.rent) };
+  });
+}
 function renderAll() {
   document.querySelector("#rent-month").value ||= monthKey.slice(0, 7);
   document.querySelector("#utility-month").value ||= monthKey.slice(0, 7);
@@ -75,6 +88,7 @@ async function loadData() {
     return { ...tenant, lease_url: data?.signedUrl || null };
   }));
   state = { units: units.data, maintenance: maintenance.data, utilities: utilities.data, expenses: expenses.data, rentHistory: rentHistory.error ? [] : rentHistory.data, utilityHistory: utilityHistory.error ? [] : utilityHistory.data, tenants: hydratedTenants };
+  syncTenantRentsToUnits();
   renderAll();
 }
 function setAuthMessage(message, error = false) { const element = document.querySelector("#auth-message"); element.textContent = message; element.style.color = error ? "#a63b2d" : ""; }
@@ -177,7 +191,10 @@ document.querySelector("#entry-form").addEventListener("submit", async event => 
     const record = { unit_id:data.get("unit_id"), unit_name:unit.name, full_name:data.get("full_name"), email:data.get("email") || null, phone:data.get("phone") || null, lease_start:data.get("lease_start"), lease_end:data.get("lease_end"), monthly_rent:Number(data.get("monthly_rent")), status:data.get("status"), lease_document:leaseDocument };
     const query = form.dataset.id ? supabase.from("tenants").update(record).eq("id", form.dataset.id) : supabase.from("tenants").insert(record);
     const { error } = await query; if (error) { alert(error.message); return; }
-    await supabase.from("units").update({ tenant: record.full_name }).eq("id", record.unit_id);
+    syncTenantRentWithUnit(record);
+    await supabase.from("units").update({ tenant: record.full_name, rent: Number(record.monthly_rent) }).eq("id", record.unit_id);
+    const activeRentRecord = state.rentHistory.find(entry => entry.month === monthKey && entry.unit_id === record.unit_id);
+    if (activeRentRecord) await supabase.from("rent_history").update({ rent: Number(record.monthly_rent) }).eq("id", activeRentRecord.id);
     modal.close(); await loadData(); return;
   }
   if (type === "rent") {
