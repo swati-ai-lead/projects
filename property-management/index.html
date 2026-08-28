@@ -24,7 +24,8 @@
         <a class="nav-link" href="#utilities" data-view="utilities"><span>04</span> Utilities</a>
         <a class="nav-link" href="#expenses" data-view="expenses"><span>05</span> Expenses</a>
         <a class="nav-link" href="#history" data-view="history"><span>06</span> History</a>
-        <a class="nav-link" href="#tenants" data-view="tenants"><span>07</span> Tenants</a>
+        <a class="nav-link" href="#units" data-view="units"><span>07</span> Units</a>
+        <a class="nav-link" href="#tenants" data-view="tenants"><span>08</span> Tenants</a>
       </nav>
       <p class="sidebar-note">A quiet record of the work that keeps a home running.</p>
     </aside>
@@ -54,6 +55,11 @@
         <div class="table-wrap"><table><thead><tr><th>Unit</th><th>Monthly rent</th><th>Received</th><th>Method</th><th>Status</th><th></th></tr></thead><tbody id="rent-table"></tbody></table></div>
       </section>
 
+      <section class="view" id="units">
+        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">PROPERTY UNITS</p><h2>Units</h2><p>View furnishings, amenities, and move-in photos for each unit.</p></div></div>
+        <div class="units-grid" id="units-list"></div>
+      </section>
+
       <section class="view" id="maintenance">
         <div class="view-title-row"><div class="page-intro"><p class="eyebrow">REPAIRS &amp; UPKEEP</p><h2>Maintenance</h2><p>Track requests from first note to completed work.</p></div><button class="primary-button" data-open-modal="maintenance">+ New request</button></div>
         <div class="maintenance-grid" id="maintenance-list"></div>
@@ -70,6 +76,11 @@
         <div class="history-controls"><label>Month<select id="history-month"></select></label></div>
         <div class="history-section"><p class="eyebrow">RENT</p><div class="table-wrap"><table><thead><tr><th>Unit</th><th>Monthly rent</th><th></th></tr></thead><tbody id="history-rent-table"></tbody></table></div></div>
         <div class="history-section"><p class="eyebrow">UTILITIES</p><div class="table-wrap"><table><thead><tr><th>Service</th><th>Amount</th><th>Due</th><th>Status</th><th></th></tr></thead><tbody id="history-utility-table"></tbody></table></div></div>
+      </section>
+
+      <section class="view" id="units">
+        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">PROPERTY UNITS</p><h2>Units</h2><p>View furnishings, amenities, and move-in photos for each unit.</p></div></div>
+        <div class="units-grid" id="units-list"></div>
       </section>
 
       <section class="view" id="tenants">
