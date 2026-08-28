@@ -1,0 +1,9 @@
+{
+  "name": "hiring-manager-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "python -m http.server 3000",
+    "dev": "python -m http.server 3000"
+  }
+}

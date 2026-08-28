@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HireLift | Hiring Managers</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="brand-mark">H</div>
+          <div>
+            <p class="eyebrow">Targeted hiring</p>
+            <h1>HireLift</h1>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <button class="ghost-button">Saved profiles <span id="saved-count">0</span></button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="sidebar panel">
+          <div class="section-header">
+            <h2>Filters</h2>
+            <button id="reset-filters" class="link-button" type="button">Reset</button>
+          </div>
+
+          <label class="field-label" for="keyword-search">Search</label>
+          <input id="keyword-search" type="text" placeholder="AI, product, growth..." />
+
+          <label class="field-label" for="location-filter">Location</label>
+          <select id="location-filter">
+            <option value="all">Anywhere</option>
+            <option value="Remote">Remote</option>
+            <option value="Hybrid">Hybrid</option>
+            <option value="On-site">On-site</option>
+          </select>
+
+          <label class="field-label" for="function-filter">Hiring focus</label>
+          <select id="function-filter">
+            <option value="all">All functions</option>
+            <option value="Engineering">Engineering</option>
+            <option value="Product">Product</option>
+            <option value="Design">Design</option>
+            <option value="Marketing">Marketing</option>
+            <option value="Sales">Sales</option>
+          </select>
+
+          <label class="field-label" for="experience-filter">Experience</label>
+          <select id="experience-filter">
+            <option value="all">All levels</option>
+            <option value="Entry">Entry</option>
+            <option value="Mid">Mid</option>
+            <option value="Senior">Senior</option>
+            <option value="Leadership">Leadership</option>
+          </select>
+
+          <label class="field-label" for="response-filter">Response window</label>
+          <input id="response-filter" type="range" min="12" max="96" step="12" value="12" />
+          <div class="salary-value">Within 12h</div>
+        </aside>
+
+        <section class="results panel">
+          <div class="section-header result-header">
+            <div>
+              <p class="eyebrow">Live hiring posts</p>
+              <h2 id="results-title">Top profiles</h2>
+            </div>
+            <div id="results-count" class="results-count">0 profiles</div>
+          </div>
+
+          <div id="jobs-list" class="jobs-list" aria-live="polite"></div>
+        </section>
+
+        <aside class="detail panel">
+          <div id="job-detail" class="job-detail"></div>
+        </aside>
+      </main>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
