@@ -79,15 +79,6 @@ function renderUnits() {
 }
 function renderExpenses() { const supplies = state.expenses.filter(item => item.category === "Supplies").reduce((sum, item) => sum + Number(item.amount), 0); document.querySelector("#supplies-total").textContent = money(supplies); document.querySelector("#expense-table").innerHTML = state.expenses.map(item => `<tr><td>${item.date}</td><td><span class="status paid">${item.category}</span></td><td>${item.description}</td><td>${money(item.amount)}</td><td>${isAdmin ? `<button class="small-button" data-delete-expense="${item.id}">Delete</button>` : ""}</td></tr>`).join(""); }
 function tenantReminder(tenant) { const pending = state.utilities.filter(item => !item.paid).map(item => `${item.service} ${money(item.amount)}`).join(", "); return `1179 Bush St reminder: your monthly rent is ${money(tenant.monthly_rent)}. Pending property utilities: ${pending || "none"}.`; }
-const EXTRA_LEASE_TERMS = { asif: [{ start: "2025-09-01", end: "2026-09-30" }] };
-function leaseTermsFor(tenant) {
-  const terms = [];
-  const add = (start, end) => { if (start && end && !terms.some(term => term.start === start && term.end === end)) terms.push({ start, end }); };
-  add(tenant.lease_start, tenant.lease_end);
-  const extras = Object.entries(EXTRA_LEASE_TERMS).find(([name]) => (tenant.full_name || "").toLowerCase().includes(name))?.[1] || [];
-  extras.forEach(term => add(term.start, term.end));
-  return terms.sort((a, b) => b.start.localeCompare(a.start));
-}
 function renderTenants() {
   const select = document.querySelector("#tenant-month");
   const months = ledgerMonths();
@@ -103,22 +94,17 @@ function renderTenants() {
     const rent = record ? record.rent : item.monthly_rent;
     const paid = record ? record.paid : isCurrentMonth && unit?.paid;
     const received = record ? record.received : isCurrentMonth ? unit?.received : "";
-    const terms = leaseTermsFor(item);
-    const activeTerm = `${item.lease_start}|${item.lease_end}`;
-    const leaseCell = isAdmin
-      ? `<select class="inline-select" data-lease-tenant="${item.id}">${terms.map(term => `<option value="${term.start}|${term.end}"${`${term.start}|${term.end}` === activeTerm ? " selected" : ""}>${shortMonthLabel(term.start)} \u2013 ${shortMonthLabel(term.end)}</option>`).join("")}</select>`
-      : `${shortMonthLabel(item.lease_start)} \u2013 ${shortMonthLabel(item.lease_end)}`;
     return `<tr>
       <td><strong>${item.unit_name}</strong><br><small class="status ${item.status === "Active" ? "paid" : ""}">${item.status}</small></td>
       <td><strong>${item.full_name}</strong><br><small>${item.email || "-"}</small><br><small>${item.phone || "-"}</small></td>
-      <td>${leaseCell}</td>
-      <td>${money(rent)}${isAdmin ? `<br><button class="small-button" data-edit-rent="${item.id}">Edit</button>` : ""}</td>
-      <td><span class="status ${paid ? "paid" : ""}">${paid ? "Received" : "Pending"}</span><br><small>${received || "Cash"}</small>${isAdmin ? `<br><button class="small-button" data-rent-id="${item.unit_id}">${paid ? "Undo" : "Record cash"}</button>` : ""}</td>
+      <td>${shortMonthLabel(item.lease_start)} \u2013 ${shortMonthLabel(item.lease_end)}</td>
+      <td>${money(rent)}</td>
+      <td><span class="status ${paid ? "paid" : ""}">${paid ? "Received" : "Pending"}</span><br><small>${received || "Cash"}</small></td>
       <td>${peco === null ? "-" : `${money(peco / 4)}<br><small>bill / 4</small>`}</td>
       <td>${water === null ? "-" : `${money(water / 4)}<br><small>bill / 4</small>`}</td>
       <td>${trash === null ? "-" : money(trash)}</td>
       <td>${sewer === null ? "-" : money(sewer)}</td>
-      <td><div class="tenant-actions">${item.lease_url ? `<a class="text-link" href="${item.lease_url}" target="_blank" rel="noreferrer">Lease</a>` : ""}${isAdmin ? `<button class="small-button" data-edit-tenant="${item.id}">Details</button>${item.phone ? `<button class="small-button" data-copy-reminder="${item.id}">Copy reminder</button>` : ""}${item.email ? `<button class="small-button" data-email-reminder="${item.id}">Send email</button>` : ""}` : ""}</div></td>
+      <td><div class="tenant-actions">${item.lease_url ? `<a class="text-link" href="${item.lease_url}" target="_blank" rel="noreferrer">Lease</a>` : ""}${isAdmin ? `<button class="small-button" data-edit-tenant="${item.id}">Edit</button>${item.phone ? `<button class="small-button" data-copy-reminder="${item.id}">Copy reminder</button>` : ""}${item.email ? `<button class="small-button" data-email-reminder="${item.id}">Send email</button>` : ""}<button class="small-button" data-rent-id="${item.unit_id}">${paid ? "Undo cash" : "Record cash"}</button>` : ""}</div></td>
     </tr>`;
   }).join("") || "<tr><td colspan='10'>No tenants have been added yet.</td></tr>";
 }
@@ -187,11 +173,10 @@ function setAuthMode(mode) {
 const modal = document.querySelector("#entry-modal");
 function openModal(type) {
   const forms = {
-    rent: { title: "Edit monthly rent", fields: `<div class="form-grid"><label>Monthly rent<input name="rent" type="number" min="0" step="0.01" required></label></div>` },
     rentHistory: { title: "Correct rent history", fields: `<div class="form-grid"><label>Monthly rent<input name="rent" type="number" min="0" step="0.01" required></label></div>` },
     utilityEdit: { title: "Edit utility bill", fields: `<div class="form-grid"><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label></div>` },
     utilityHistory: { title: "Correct utility history", fields: `<div class="form-grid"><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label></div>` },
-    tenant: { title: "Tenant and lease", fields: `<div class="form-grid"><label>Unit<select name="unit_id" required>${state.units.map(item => `<option value="${item.id}">${item.name}</option>`).join("")}</select></label><label>Tenant name<input name="full_name" required></label><label>Email<input name="email" type="email"></label><label>Phone<input name="phone" type="tel"></label><label>Lease start<input name="lease_start" type="date" required></label><label>Lease end<input name="lease_end" type="date" required></label><label>Monthly lease<input name="monthly_rent" type="number" min="0" step="0.01" required></label><label>Status<select name="status"><option>Active</option><option>Upcoming</option><option>Ended</option></select></label><label class="full">Lease PDF<input name="lease_file" type="file" accept="application/pdf"></label></div>` },
+    tenant: { title: "Tenant and lease", fields: `<div class="form-grid"><label>Unit<select name="unit_id" required>${state.units.map(item => `<option value="${item.id}">${item.name}</option>`).join("")}</select></label><label>Tenant name<input name="full_name" required></label><label>Email<input name="email" type="email"></label><label>Phone<input name="phone" type="tel"></label><label>Lease start<input name="lease_start" type="date" required></label><label>Lease end<input name="lease_end" type="date" required></label><label>Rent for ${monthLabel(selectedTenantMonth())}<input name="monthly_rent" type="number" min="0" step="0.01" required></label><label>Status<select name="status"><option>Active</option><option>Upcoming</option><option>Ended</option></select></label><label class="full">Lease PDF<input name="lease_file" type="file" accept="application/pdf"></label></div>` },
     maintenance: { title: "New maintenance request", fields: `<div class="form-grid"><label>Title<input name="title" required placeholder="e.g. Replace hallway bulb"></label><label>Unit<select name="unit"><option>Unit 1</option><option>Unit 2</option><option>Both units</option></select></label><label>Priority<select name="priority"><option>Routine</option><option>Attention</option></select></label><label class="full">Details<textarea name="detail" required placeholder="Describe the work needed"></textarea></label></div>` },
     utility: { title: "Add utility bill", fields: `<div class="form-grid"><label>Service<select name="service"><option>PECO</option><option>WiFi</option><option>Trash</option><option>Sewer</option><option>Water</option></select></label><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label></div>` },
     expense: { title: "Add supply expense", fields: `<div class="form-grid"><label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" required></label><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label><label class="full">Description<input name="description" required placeholder="e.g. Paint and drop cloths"></label></div>` }
@@ -230,10 +215,9 @@ document.addEventListener("click", async event => {
   if (!isAdmin) return;
   const modalButton = event.target.closest("[data-open-modal]"); if (modalButton) openModal(modalButton.dataset.openModal);
   const editUtility = event.target.closest("[data-edit-utility]"); if (editUtility) { const item = state.utilities.find(entry => entry.id === editUtility.dataset.editUtility); const record = state.utilityHistory.find(entry => entry.month === selectedUtilityMonth() && entry.utility_id === item.id); openModal("utilityEdit"); document.querySelector("[name=amount]").value = record ? record.amount : item.amount; document.querySelector("#entry-form").dataset.id = item.id; }
-  const editRent = event.target.closest("[data-edit-rent]"); if (editRent) { const tenant = state.tenants.find(entry => entry.id === editRent.dataset.editRent); const record = state.rentHistory.find(entry => entry.month === selectedTenantMonth() && entry.unit_id === tenant.unit_id); openModal("rent"); document.querySelector("[name=rent]").value = record ? record.rent : tenant.monthly_rent; document.querySelector("#entry-form").dataset.id = tenant.id; }
   const editRentHistory = event.target.closest("[data-edit-rent-history]"); if (editRentHistory) { const item = state.rentHistory.find(entry => entry.id === editRentHistory.dataset.editRentHistory); openModal("rentHistory"); document.querySelector("[name=rent]").value = item.rent; document.querySelector("#entry-form").dataset.id = item.id; }
   const editUtilityHistory = event.target.closest("[data-edit-utility-history]"); if (editUtilityHistory) { const item = state.utilityHistory.find(entry => entry.id === editUtilityHistory.dataset.editUtilityHistory); openModal("utilityHistory"); document.querySelector("[name=amount]").value = item.amount; document.querySelector("#entry-form").dataset.id = item.id; }
-  const editTenant = event.target.closest("[data-edit-tenant]"); if (editTenant) { const item = state.tenants.find(entry => entry.id === editTenant.dataset.editTenant); openModal("tenant"); Object.entries(item).forEach(([key, value]) => { const input = document.querySelector(`[name=${key}]`); if (input) input.value = value || ""; }); document.querySelector("#entry-form").dataset.id = item.id; document.querySelector("#entry-form").dataset.leaseDocument = item.lease_document || ""; }
+  const editTenant = event.target.closest("[data-edit-tenant]"); if (editTenant) { const item = state.tenants.find(entry => entry.id === editTenant.dataset.editTenant); openModal("tenant"); Object.entries(item).forEach(([key, value]) => { const input = document.querySelector(`[name=${key}]`); if (input) input.value = value || ""; }); const monthRent = state.rentHistory.find(entry => entry.month === selectedTenantMonth() && entry.unit_id === item.unit_id); if (monthRent) document.querySelector("[name=monthly_rent]").value = monthRent.rent; document.querySelector("#entry-form").dataset.id = item.id; document.querySelector("#entry-form").dataset.leaseDocument = item.lease_document || ""; }
   const copyReminder = event.target.closest("[data-copy-reminder]"); if (copyReminder) { const tenant = state.tenants.find(item => item.id === copyReminder.dataset.copyReminder); const reminder = tenantReminder(tenant); try { await navigator.clipboard.writeText(reminder); alert(`Reminder copied for ${tenant.full_name}. Paste it into a text message to ${tenant.phone}.`); } catch { prompt(`Copy this reminder for ${tenant.full_name}:`, reminder); } }
   const emailReminder = event.target.closest("[data-email-reminder]"); if (emailReminder) { const tenant = state.tenants.find(item => item.id === emailReminder.dataset.emailReminder); const status = document.querySelector("#reminder-status"); status.textContent = "Sending email reminder..."; try { const response = await fetch("/api/send-reminder", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ tenantId:tenant.id, accessToken:session.access_token }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to send reminder."); status.textContent = `Email reminder sent to ${tenant.email}.`; } catch (error) { status.textContent = error.message; } }
   const rentButton = event.target.closest("[data-rent-id]"); if (rentButton) { const item = state.units.find(entry => entry.id === rentButton.dataset.rentId); const month = selectedTenantMonth(); const existing = state.rentHistory.find(entry => entry.month === month && entry.unit_id === item.id); const paid = !(existing ? existing.paid : month === monthKey && item.paid); const received = paid ? new Intl.DateTimeFormat("en-US", { month:"short", day:"numeric", year:"numeric" }).format(new Date()) : ""; const { error } = await supabase.from("rent_history").upsert({ month, unit_id:item.id, unit_name:item.name, rent:existing ? existing.rent : item.rent, paid, received }, { onConflict:"month,unit_id" }); if (error) alert(error.message); else { if (month === monthKey) await supabase.from("units").update({ paid, received }).eq("id", item.id); await loadData(); } }
@@ -245,13 +229,6 @@ document.addEventListener("click", async event => {
 document.querySelector("#history-month").addEventListener("change", renderHistory);
 document.querySelector("#tenant-month").addEventListener("change", renderTenants);
 document.querySelector("#utility-month").addEventListener("change", renderUtilities);
-document.addEventListener("change", async event => {
-  const leaseSelect = event.target.closest("[data-lease-tenant]");
-  if (!leaseSelect || !isAdmin) return;
-  const [lease_start, lease_end] = leaseSelect.value.split("|");
-  const { error } = await supabase.from("tenants").update({ lease_start, lease_end }).eq("id", leaseSelect.dataset.leaseTenant);
-  if (error) alert(error.message); else await loadData();
-});
 document.querySelectorAll("[data-close-modal]").forEach(button => button.addEventListener("click", () => modal.close()));
 document.querySelector("#entry-form").addEventListener("submit", async event => {
   const form = event.target; event.preventDefault();
@@ -267,12 +244,16 @@ document.querySelector("#entry-form").addEventListener("submit", async event => 
       leaseDocument = path;
     }
     const record = { unit_id:data.get("unit_id"), unit_name:unit.name, full_name:data.get("full_name"), email:data.get("email") || null, phone:data.get("phone") || null, lease_start:data.get("lease_start"), lease_end:data.get("lease_end"), monthly_rent:Number(data.get("monthly_rent")), status:data.get("status"), lease_document:leaseDocument };
-    const query = form.dataset.id ? supabase.from("tenants").update(record).eq("id", form.dataset.id) : supabase.from("tenants").insert(record);
+    const month = selectedTenantMonth();
+    // Editing a past month should not overwrite the tenant's current rent.
+    const tenantWrite = month === monthKey ? record : { ...record, monthly_rent: state.tenants.find(item => item.id === form.dataset.id)?.monthly_rent ?? record.monthly_rent };
+    const query = form.dataset.id ? supabase.from("tenants").update(tenantWrite).eq("id", form.dataset.id) : supabase.from("tenants").insert(tenantWrite);
     const { error } = await query; if (error) { alert(error.message); return; }
-    syncTenantRentWithUnit(record);
-    await supabase.from("units").update({ tenant: record.full_name, rent: Number(record.monthly_rent) }).eq("id", record.unit_id);
-    const activeRentRecord = state.rentHistory.find(entry => entry.month === monthKey && entry.unit_id === record.unit_id);
-    if (activeRentRecord) await supabase.from("rent_history").update({ rent: Number(record.monthly_rent) }).eq("id", activeRentRecord.id);
+    syncTenantRentWithUnit(tenantWrite);
+    const existingRent = state.rentHistory.find(entry => entry.month === month && entry.unit_id === record.unit_id);
+    await supabase.from("rent_history").upsert({ month, unit_id:record.unit_id, unit_name:unit.name, rent:Number(record.monthly_rent), paid:existingRent?.paid || false, received:existingRent?.received || "" }, { onConflict:"month,unit_id" });
+    if (month === monthKey) await supabase.from("units").update({ tenant: record.full_name, rent: Number(record.monthly_rent) }).eq("id", record.unit_id);
+    else await supabase.from("units").update({ tenant: record.full_name }).eq("id", record.unit_id);
     modal.close(); await loadData(); return;
   }
   if (type === "utilityEdit") {
@@ -280,17 +261,6 @@ document.querySelector("#entry-form").addEventListener("submit", async event => 
     const { error } = await supabase.from("utility_history").upsert({ month, utility_id:id, service:utility.service, amount:updates.amount, due, paid:existing?.paid || false }, { onConflict:"month,utility_id" });
     if (error) { alert(error.message); return; }
     if (month === monthKey) await supabase.from("utilities").update({ ...updates, due }).eq("id", id);
-    modal.close(); await loadData(); return;
-  }
-  if (type === "rent") {
-    const tenant = state.tenants.find(item => item.id === form.dataset.id);
-    const unit = state.units.find(item => item.id === tenant.unit_id);
-    const month = selectedTenantMonth();
-    const existing = state.rentHistory.find(entry => entry.month === month && entry.unit_id === tenant.unit_id);
-    const rent = Number(data.get("rent"));
-    const { error } = await supabase.from("rent_history").upsert({ month, unit_id:tenant.unit_id, unit_name:unit?.name || tenant.unit_name, rent, paid:existing?.paid || false, received:existing?.received || "" }, { onConflict:"month,unit_id" });
-    if (error) { alert(error.message); return; }
-    if (month === monthKey) { await supabase.from("tenants").update({ monthly_rent: rent }).eq("id", tenant.id); await supabase.from("units").update({ rent }).eq("id", tenant.unit_id); }
     modal.close(); await loadData(); return;
   }
   if (type === "rentHistory") {
