@@ -94,20 +94,24 @@ function renderTenants() {
     const rent = record ? record.rent : item.monthly_rent;
     const paid = record ? record.paid : isCurrentMonth && unit?.paid;
     const received = record ? record.received : isCurrentMonth ? unit?.received : "";
+    const pecoShare = peco === null ? 0 : peco / 4;
+    const waterShare = water === null ? 0 : water / 4;
+    const totalDue = Number(rent || 0) + pecoShare + waterShare + Number(trash || 0) + Number(sewer || 0) + WIFI_PER_TENANT;
     return `<tr>
       <td><strong>${item.unit_name}</strong><br><small class="status ${item.status === "Active" ? "paid" : ""}">${item.status}</small></td>
       <td><strong>${item.full_name}</strong><br><small>${item.email || "-"}</small><br><small>${item.phone || "-"}</small></td>
       <td>${shortMonthLabel(item.lease_start)} \u2013 ${shortMonthLabel(item.lease_end)}</td>
       <td>${money(rent)}</td>
-      <td><span class="status ${paid ? "paid" : ""}">${paid ? "Received" : "Pending"}</span><br><small>${received || "Cash"}</small></td>
-      <td>${peco === null ? "-" : `${money(peco / 4)}<br><small>bill / 4</small>`}</td>
-      <td>${water === null ? "-" : `${money(water / 4)}<br><small>bill / 4</small>`}</td>
+      <td>${peco === null ? "-" : `${money(pecoShare)}<br><small>bill / 4</small>`}</td>
+      <td>${water === null ? "-" : `${money(waterShare)}<br><small>bill / 4</small>`}</td>
       <td>${trash === null ? "-" : money(trash)}</td>
       <td>${sewer === null ? "-" : money(sewer)}</td>
       <td>${money(WIFI_PER_TENANT)}<br><small>flat</small></td>
+      <td><strong>${money(totalDue)}</strong></td>
+      <td><span class="status ${paid ? "paid" : ""}">${paid ? "Received" : "Pending"}</span><br><small>${received || "Cash"}</small></td>
       <td><div class="tenant-actions">${item.lease_url ? `<a class="text-link" href="${item.lease_url}" target="_blank" rel="noreferrer">Lease</a>` : ""}${isAdmin ? `<button class="small-button" data-edit-tenant="${item.id}">Edit</button>${item.email ? `<button class="small-button" data-email-reminder="${item.id}">Send email</button>` : ""}<button class="small-button" data-rent-id="${item.unit_id}">${paid ? "Undo cash" : "Record cash"}</button>` : ""}</div></td>
     </tr>`;
-  }).join("") || "<tr><td colspan='11'>No tenants have been added yet.</td></tr>";
+  }).join("") || "<tr><td colspan='12'>No tenants have been added yet.</td></tr>";
 }
 function syncTenantRentWithUnit(tenant) {
   if (!tenant || !tenant.unit_id) return;
