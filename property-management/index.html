@@ -19,13 +19,12 @@
       </a>
       <nav aria-label="Primary navigation">
         <a class="nav-link active" href="#overview" data-view="overview"><span>01</span> Overview</a>
-        <a class="nav-link" href="#rent" data-view="rent"><span>02</span> Rent ledger</a>
+        <a class="nav-link" href="#tenants" data-view="tenants"><span>02</span> Tenants</a>
         <a class="nav-link" href="#maintenance" data-view="maintenance"><span>03</span> Maintenance</a>
         <a class="nav-link" href="#utilities" data-view="utilities"><span>04</span> Utilities</a>
         <a class="nav-link" href="#expenses" data-view="expenses"><span>05</span> Expenses</a>
         <a class="nav-link" href="#history" data-view="history"><span>06</span> History</a>
         <a class="nav-link" href="#units" data-view="units"><span>07</span> Units</a>
-        <a class="nav-link" href="#tenants" data-view="tenants"><span>08</span> Tenants</a>
       </nav>
       <p class="sidebar-note">A quiet record of the work that keeps a home running.</p>
     </aside>
@@ -44,20 +43,9 @@
           <article class="metric-card"><p>Open maintenance</p><strong id="open-maintenance">0</strong><span>Items needing attention</span></article>
           <article class="metric-card"><p>Month expenses</p><strong id="expense-total">$0</strong><span>Supplies and utilities</span></article>
         </div>
-        <div class="unit-header"><div><p class="eyebrow">RENT STATUS</p><h3>Two homes, one clear view.</h3></div><a class="text-link" href="#rent" data-view="rent">Open ledger &#8594;</a></div>
+        <div class="unit-header"><div><p class="eyebrow">RENT STATUS</p><h3>Two homes, one clear view.</h3></div><a class="text-link" href="#tenants" data-view="tenants">Open tenants &#8594;</a></div>
         <div class="unit-grid" id="unit-cards"></div>
         <div class="split-section"><section><div class="section-heading"><div><p class="eyebrow">UP NEXT</p><h3>Maintenance queue</h3></div><a class="text-link" href="#maintenance" data-view="maintenance">View all &#8594;</a></div><div class="list" id="overview-maintenance"></div></section><section><div class="section-heading"><div><p class="eyebrow">SERVICE BILLS</p><h3>Utilities snapshot</h3></div><a class="text-link" href="#utilities" data-view="utilities">Manage &#8594;</a></div><div class="list" id="overview-utilities"></div></section></div>
-      </section>
-
-      <section class="view" id="rent">
-        <div class="page-intro"><p class="eyebrow">CASH PAYMENTS</p><h2>Rent ledger</h2><p>Record cash as it is received. Changes are saved in this browser.</p></div>
-        <div class="history-controls"><label>Month<input id="rent-month" type="month" /></label></div>
-        <div class="table-wrap"><table><thead><tr><th>Unit</th><th>Monthly rent</th><th>Received</th><th>Method</th><th>Status</th><th></th></tr></thead><tbody id="rent-table"></tbody></table></div>
-      </section>
-
-      <section class="view" id="units">
-        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">PROPERTY UNITS</p><h2>Units</h2><p>View furnishings, amenities, and move-in photos for each unit.</p></div></div>
-        <div class="units-grid" id="units-list"></div>
       </section>
 
       <section class="view" id="maintenance">
@@ -84,8 +72,9 @@
       </section>
 
       <section class="view" id="tenants">
-        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">OCCUPANCY &amp; LEASES</p><h2>Tenants</h2><p>Keep tenant contacts and lease terms paired with the correct unit.</p></div><button class="primary-button" data-open-modal="tenant">+ Add tenant</button></div>
-        <div class="table-wrap"><table><thead><tr><th>Unit</th><th>Tenant</th><th>Email</th><th>Phone</th><th>Lease term</th><th>Monthly lease</th><th>PECO share</th><th>Water share</th><th>Trash</th><th>Sewer</th><th>Status</th><th></th></tr></thead><tbody id="tenant-table"></tbody></table></div><p class="reminder-status" id="reminder-status"></p>
+        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">OCCUPANCY, LEASES &amp; RENT</p><h2>Tenants</h2><p>Pick a month, edit the amount in place, and save without leaving the row.</p></div><button class="primary-button" data-open-modal="tenant">+ Add tenant</button></div>
+        <div class="history-controls"><label>Month<select id="tenant-month"></select></label></div>
+        <div class="table-wrap"><table><thead><tr><th>Unit</th><th>Tenant</th><th>Lease term</th><th>Monthly rent</th><th>Rent status</th><th>PECO</th><th>Water</th><th>Trash</th><th>Sewer</th><th></th></tr></thead><tbody id="tenant-table"></tbody></table></div><p class="reminder-status" id="reminder-status"></p>
       </section>
 
       <section class="view" id="expenses">

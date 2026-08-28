@@ -16,7 +16,19 @@ async function getClient() {
   return createClient(config.url, config.anonKey, { auth: { storage: sessionStorage, persistSession: true, autoRefreshToken: true } });
 }
 function currentMonthExpenses() { return state.expenses.reduce((sum, item) => sum + Number(item.amount), 0) + state.utilities.reduce((sum, item) => sum + Number(item.amount), 0); }
-function selectedRentMonth() { return `${document.querySelector("#rent-month").value || monthKey.slice(0, 7)}-01`; }
+const HISTORY_START = "2025-04-01";
+function monthLabel(month) { return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${month}T00:00:00Z`)); }
+function shortMonthLabel(date) { return date ? new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${date.slice(0, 10)}T00:00:00Z`)) : "?"; }
+function ledgerMonths() {
+  const months = []; let year = Number(HISTORY_START.slice(0, 4)); let month = Number(HISTORY_START.slice(5, 7));
+  const endYear = Number(monthKey.slice(0, 4)); const endMonth = Number(monthKey.slice(5, 7));
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    months.push(`${year}-${String(month).padStart(2, "0")}-01`);
+    month += 1; if (month > 12) { month = 1; year += 1; }
+  }
+  return months.reverse();
+}
+function selectedTenantMonth() { return document.querySelector("#tenant-month").value || monthKey; }
 function selectedUtilityMonth() { return `${document.querySelector("#utility-month").value || monthKey.slice(0, 7)}-01`; }
 function monthEndDue(month) { return new Intl.DateTimeFormat("en-US", { month:"short", day:"numeric", timeZone:"UTC" }).format(new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0))); }
 function renderOverview() {
@@ -32,19 +44,17 @@ function renderOverview() {
   document.querySelector("#overview-maintenance").innerHTML = openItems.length ? openItems.map(item => `<div class="list-row"><div><strong>${item.title}</strong><small>${item.unit} · ${item.priority}</small></div><span class="status">Open</span></div>`).join("") : "<div class='list-row'><strong>All caught up.</strong></div>";
   document.querySelector("#overview-utilities").innerHTML = state.utilities.slice(0, 3).map(item => `<div class="list-row"><div><strong>${item.service}</strong><small>Due ${item.due}</small></div><strong>${money(item.amount)}</strong></div>`).join("");
 }
-function renderRent() { const month = selectedRentMonth(); const isCurrentMonth = month === monthKey; document.querySelector("#rent-table").innerHTML = state.units.map(item => { const record = state.rentHistory.find(entry => entry.month === month && entry.unit_id === item.id); const rent = record ? record.rent : item.rent; const paid = record ? record.paid : isCurrentMonth && item.paid; const received = record ? record.received : isCurrentMonth ? item.received : ""; return `<tr><td><strong>${item.name}</strong><br><small>${item.tenant || "Available to assign"}</small></td><td>${money(rent)}</td><td>${received || "-"}</td><td>Cash</td><td><span class="status ${paid ? "paid" : ""}">${paid ? "Received" : "Pending"}</span></td><td>${isAdmin ? `<button class="small-button" data-rent-id="${item.id}">${paid ? "Undo" : "Record cash"}</button>` : ""}</td></tr>`; }).join(""); }
 function renderMaintenance() { document.querySelector("#maintenance-list").innerHTML = state.maintenance.map(item => `<article class="maintenance-card ${item.priority === "Attention" && !item.done ? "priority" : ""}"><span class="status ${item.done ? "done" : ""}">${item.done ? "Completed" : item.priority}</span><h3>${item.title}</h3><p>${item.detail}</p><div class="card-footer"><span>${item.unit}</span>${isAdmin ? `<button class="small-button" data-maintenance-id="${item.id}">${item.done ? "Reopen" : "Complete"}</button>` : ""}</div></article>`).join(""); }
 function renderUtilities() { const month = selectedUtilityMonth(); const isCurrentMonth = month === monthKey; document.querySelector("#utility-list").innerHTML = state.utilities.map(item => { const record = state.utilityHistory.find(entry => entry.month === month && entry.utility_id === item.id); const amount = record ? record.amount : item.amount; const paid = record ? record.paid : isCurrentMonth && item.paid; return `<article class="utility-card"><span class="service">${item.service}</span><strong>${money(amount)}</strong><p>Due ${monthEndDue(month)}</p><div class="card-footer"><span class="status ${paid ? "paid" : ""}">${paid ? "Paid" : "Unpaid"}</span>${isAdmin ? `<span><button class="small-button" data-edit-utility="${item.id}">Edit</button><button class="small-button" data-utility-id="${item.id}">${paid ? "Mark unpaid" : "Mark paid"}</button></span>` : ""}</div></article>`; }).join(""); }
 function renderHistory() {
   const select = document.querySelector("#history-month");
-  const months = [...new Set([...state.rentHistory, ...state.utilityHistory].map(item => item.month))].sort().reverse();
-  if (!months.includes(monthKey)) months.unshift(monthKey);
-  const selected = select.value || months[0] || monthKey;
-  select.innerHTML = months.map(month => `<option value="${month}">${new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${month}T00:00:00Z`))}</option>`).join("");
+  const months = [...new Set([...ledgerMonths(), ...state.rentHistory.map(item => item.month), ...state.utilityHistory.map(item => item.month)])].sort().reverse();
+  const selected = months.includes(select.value) ? select.value : monthKey;
+  select.innerHTML = months.map(month => `<option value="${month}">${monthLabel(month)}</option>`).join("");
   select.value = selected;
   const rents = state.rentHistory.filter(item => item.month === selected);
   const utilities = state.utilityHistory.filter(item => item.month === selected);
-  document.querySelector("#history-rent-table").innerHTML = rents.map(item => `<tr><td>${item.unit_name}</td><td>${money(item.rent)}</td><td>${isAdmin ? `<button class="small-button" data-edit-rent-history="${item.id}">Edit</button>` : ""}</td></tr>`).join("") || "<tr><td colspan='3'>No rent records for this month.</td></tr>";
+  document.querySelector("#history-rent-table").innerHTML = rents.map(item => `<tr><td>${item.unit_name}</td><td>${isAdmin ? inlineAmount("rent-history", item.id, item.rent) : money(item.rent)}</td><td></td></tr>`).join("") || "<tr><td colspan='3'>No rent records for this month.</td></tr>";
   document.querySelector("#history-utility-table").innerHTML = utilities.map(item => `<tr><td>${item.service}</td><td>${money(item.amount)}</td><td>${item.due}</td><td><span class="status ${item.paid ? "paid" : ""}">${item.paid ? "Paid" : "Unpaid"}</span></td><td>${isAdmin ? `<button class="small-button" data-edit-utility-history="${item.id}">Edit</button>` : ""}</td></tr>`).join("") || "<tr><td colspan='5'>No utility records for this month.</td></tr>";
 }
 function renderUnits() {
@@ -69,7 +79,73 @@ function renderUnits() {
 }
 function renderExpenses() { const supplies = state.expenses.filter(item => item.category === "Supplies").reduce((sum, item) => sum + Number(item.amount), 0); document.querySelector("#supplies-total").textContent = money(supplies); document.querySelector("#expense-table").innerHTML = state.expenses.map(item => `<tr><td>${item.date}</td><td><span class="status paid">${item.category}</span></td><td>${item.description}</td><td>${money(item.amount)}</td><td>${isAdmin ? `<button class="small-button" data-delete-expense="${item.id}">Delete</button>` : ""}</td></tr>`).join(""); }
 function tenantReminder(tenant) { const pending = state.utilities.filter(item => !item.paid).map(item => `${item.service} ${money(item.amount)}`).join(", "); return `1179 Bush St reminder: your monthly rent is ${money(tenant.monthly_rent)}. Pending property utilities: ${pending || "none"}.`; }
-function renderTenants() { const peco = state.utilities.find(item => item.service === "PECO"); const water = state.utilities.find(item => item.service === "Water"); const trash = state.utilities.find(item => item.service === "Trash"); const sewer = state.utilities.find(item => item.service === "Sewer"); document.querySelector("#tenant-table").innerHTML = state.tenants.map(item => `<tr><td><strong>${item.unit_name}</strong></td><td>${item.full_name}</td><td>${item.email || "-"}</td><td>${item.phone || "-"}</td><td>${item.lease_start} to ${item.lease_end}</td><td>${money(item.monthly_rent)}</td><td>${peco ? `${money(Number(peco.amount) / 4)}<br><small>PECO bill / 4</small>` : "-"}</td><td>${water ? `${money(Number(water.amount) / 4)}<br><small>Water bill / 4</small>` : "-"}</td><td>${trash ? money(trash.amount) : "-"}</td><td>${sewer ? money(sewer.amount) : "-"}</td><td><span class="status ${item.status === "Active" ? "paid" : ""}">${item.status}</span></td><td><div class="tenant-actions">${item.lease_url ? `<a class="text-link" href="${item.lease_url}" target="_blank" rel="noreferrer">View lease</a>` : ""}${isAdmin ? `<button class="small-button" data-edit-tenant="${item.id}">Edit</button>${item.phone ? `<button class="small-button" data-copy-reminder="${item.id}">Copy reminder</button>` : ""}${item.email ? `<button class="small-button" data-email-reminder="${item.id}">Send email</button>` : ""}` : ""}</div></td></tr>`).join("") || "<tr><td colspan='12'>No tenants have been added yet.</td></tr>"; }
+const EXTRA_LEASE_TERMS = { asif: [{ start: "2025-09-01", end: "2026-09-30" }] };
+function leaseTermsFor(tenant) {
+  const terms = [];
+  const add = (start, end) => { if (start && end && !terms.some(term => term.start === start && term.end === end)) terms.push({ start, end }); };
+  add(tenant.lease_start, tenant.lease_end);
+  const extras = Object.entries(EXTRA_LEASE_TERMS).find(([name]) => (tenant.full_name || "").toLowerCase().includes(name))?.[1] || [];
+  extras.forEach(term => add(term.start, term.end));
+  return terms.sort((a, b) => b.start.localeCompare(a.start));
+}
+function inlineAmount(kind, id, value) { return `<div class="inline-edit"><input class="inline-amount" type="number" min="0" step="0.01" value="${Number(value || 0)}" data-amount-for="${kind}-${id}"><button class="small-button" data-save-amount="${kind}" data-save-id="${id}">Save</button></div>`; }
+async function saveInlineAmount(kind, id) {
+  const input = document.querySelector(`[data-amount-for="${kind}-${id}"]`);
+  const amount = Number(input.value);
+  if (!Number.isFinite(amount) || amount < 0) { alert("Enter a valid amount."); return; }
+  if (kind === "rent-history") {
+    const { error } = await supabase.from("rent_history").update({ rent: amount }).eq("id", id);
+    if (error) { alert(error.message); return; }
+    const record = state.rentHistory.find(entry => entry.id === id);
+    if (record?.month === monthKey) await supabase.from("units").update({ rent: amount }).eq("id", record.unit_id);
+  } else {
+    const tenant = state.tenants.find(entry => entry.id === id);
+    const unit = state.units.find(entry => entry.id === tenant.unit_id);
+    const month = selectedTenantMonth();
+    const existing = state.rentHistory.find(entry => entry.month === month && entry.unit_id === tenant.unit_id);
+    const { error } = await supabase.from("rent_history").upsert({ month, unit_id: tenant.unit_id, unit_name: unit?.name || tenant.unit_name, rent: amount, paid: existing?.paid || false, received: existing?.received || "" }, { onConflict: "month,unit_id" });
+    if (error) { alert(error.message); return; }
+    if (month === monthKey) {
+      await supabase.from("tenants").update({ monthly_rent: amount }).eq("id", tenant.id);
+      await supabase.from("units").update({ rent: amount }).eq("id", tenant.unit_id);
+    }
+  }
+  await loadData();
+}
+function renderTenants() {
+  const select = document.querySelector("#tenant-month");
+  const months = ledgerMonths();
+  const month = months.includes(select.value) ? select.value : monthKey;
+  select.innerHTML = months.map(item => `<option value="${item}">${monthLabel(item)}</option>`).join("");
+  select.value = month;
+  const isCurrentMonth = month === monthKey;
+  const billed = service => { const item = state.utilities.find(entry => entry.service === service); if (!item) return null; const record = state.utilityHistory.find(entry => entry.month === month && entry.utility_id === item.id); return Number(record ? record.amount : item.amount); };
+  const peco = billed("PECO"); const water = billed("Water"); const trash = billed("Trash"); const sewer = billed("Sewer");
+  document.querySelector("#tenant-table").innerHTML = state.tenants.map(item => {
+    const record = state.rentHistory.find(entry => entry.month === month && entry.unit_id === item.unit_id);
+    const unit = state.units.find(entry => entry.id === item.unit_id);
+    const rent = record ? record.rent : item.monthly_rent;
+    const paid = record ? record.paid : isCurrentMonth && unit?.paid;
+    const received = record ? record.received : isCurrentMonth ? unit?.received : "";
+    const terms = leaseTermsFor(item);
+    const activeTerm = `${item.lease_start}|${item.lease_end}`;
+    const leaseCell = isAdmin
+      ? `<select class="inline-select" data-lease-tenant="${item.id}">${terms.map(term => `<option value="${term.start}|${term.end}"${`${term.start}|${term.end}` === activeTerm ? " selected" : ""}>${shortMonthLabel(term.start)} \u2013 ${shortMonthLabel(term.end)}</option>`).join("")}</select>`
+      : `${shortMonthLabel(item.lease_start)} \u2013 ${shortMonthLabel(item.lease_end)}`;
+    return `<tr>
+      <td><strong>${item.unit_name}</strong><br><small class="status ${item.status === "Active" ? "paid" : ""}">${item.status}</small></td>
+      <td><strong>${item.full_name}</strong><br><small>${item.email || "-"}</small><br><small>${item.phone || "-"}</small></td>
+      <td>${leaseCell}</td>
+      <td>${isAdmin ? inlineAmount("tenant-rent", item.id, rent) : money(rent)}</td>
+      <td><span class="status ${paid ? "paid" : ""}">${paid ? "Received" : "Pending"}</span><br><small>${received || "Cash"}</small>${isAdmin ? `<br><button class="small-button" data-rent-id="${item.unit_id}">${paid ? "Undo" : "Record cash"}</button>` : ""}</td>
+      <td>${peco === null ? "-" : `${money(peco / 4)}<br><small>bill / 4</small>`}</td>
+      <td>${water === null ? "-" : `${money(water / 4)}<br><small>bill / 4</small>`}</td>
+      <td>${trash === null ? "-" : money(trash)}</td>
+      <td>${sewer === null ? "-" : money(sewer)}</td>
+      <td><div class="tenant-actions">${item.lease_url ? `<a class="text-link" href="${item.lease_url}" target="_blank" rel="noreferrer">Lease</a>` : ""}${isAdmin ? `<button class="small-button" data-edit-tenant="${item.id}">Details</button>${item.phone ? `<button class="small-button" data-copy-reminder="${item.id}">Copy reminder</button>` : ""}${item.email ? `<button class="small-button" data-email-reminder="${item.id}">Send email</button>` : ""}` : ""}</div></td>
+    </tr>`;
+  }).join("") || "<tr><td colspan='10'>No tenants have been added yet.</td></tr>";
+}
 function syncTenantRentWithUnit(tenant) {
   if (!tenant || !tenant.unit_id) return;
   const rent = Number(tenant.monthly_rent || 0);
@@ -84,9 +160,8 @@ function syncTenantRentsToUnits() {
   });
 }
 function renderAll() {
-  document.querySelector("#rent-month").value ||= monthKey.slice(0, 7);
   document.querySelector("#utility-month").value ||= monthKey.slice(0, 7);
-  renderOverview(); renderRent(); renderMaintenance(); renderUtilities(); renderUnits(); renderExpenses(); renderHistory(); renderTenants();
+  renderOverview(); renderMaintenance(); renderUtilities(); renderUnits(); renderExpenses(); renderHistory(); renderTenants();
   document.querySelectorAll("[data-open-modal]").forEach(button => button.hidden = !isAdmin);
   document.querySelectorAll(".read-only-note").forEach(note => note.remove());
   if (!isAdmin) document.querySelectorAll(".view").forEach(view => view.insertAdjacentHTML("afterbegin", "<p class='read-only-note'>View-only access. Contact the property administrator to update records.</p>"));
@@ -177,20 +252,28 @@ document.addEventListener("click", async event => {
   if (!isAdmin) return;
   const modalButton = event.target.closest("[data-open-modal]"); if (modalButton) openModal(modalButton.dataset.openModal);
   const editUtility = event.target.closest("[data-edit-utility]"); if (editUtility) { const item = state.utilities.find(entry => entry.id === editUtility.dataset.editUtility); const record = state.utilityHistory.find(entry => entry.month === selectedUtilityMonth() && entry.utility_id === item.id); openModal("utilityEdit"); document.querySelector("[name=amount]").value = record ? record.amount : item.amount; document.querySelector("#entry-form").dataset.id = item.id; }
-  const editRentHistory = event.target.closest("[data-edit-rent-history]"); if (editRentHistory) { const item = state.rentHistory.find(entry => entry.id === editRentHistory.dataset.editRentHistory); openModal("rentHistory"); document.querySelector("[name=rent]").value = item.rent; document.querySelector("#entry-form").dataset.id = item.id; }
   const editUtilityHistory = event.target.closest("[data-edit-utility-history]"); if (editUtilityHistory) { const item = state.utilityHistory.find(entry => entry.id === editUtilityHistory.dataset.editUtilityHistory); openModal("utilityHistory"); document.querySelector("[name=amount]").value = item.amount; document.querySelector("#entry-form").dataset.id = item.id; }
   const editTenant = event.target.closest("[data-edit-tenant]"); if (editTenant) { const item = state.tenants.find(entry => entry.id === editTenant.dataset.editTenant); openModal("tenant"); Object.entries(item).forEach(([key, value]) => { const input = document.querySelector(`[name=${key}]`); if (input) input.value = value || ""; }); document.querySelector("#entry-form").dataset.id = item.id; document.querySelector("#entry-form").dataset.leaseDocument = item.lease_document || ""; }
   const copyReminder = event.target.closest("[data-copy-reminder]"); if (copyReminder) { const tenant = state.tenants.find(item => item.id === copyReminder.dataset.copyReminder); const reminder = tenantReminder(tenant); try { await navigator.clipboard.writeText(reminder); alert(`Reminder copied for ${tenant.full_name}. Paste it into a text message to ${tenant.phone}.`); } catch { prompt(`Copy this reminder for ${tenant.full_name}:`, reminder); } }
   const emailReminder = event.target.closest("[data-email-reminder]"); if (emailReminder) { const tenant = state.tenants.find(item => item.id === emailReminder.dataset.emailReminder); const status = document.querySelector("#reminder-status"); status.textContent = "Sending email reminder..."; try { const response = await fetch("/api/send-reminder", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ tenantId:tenant.id, accessToken:session.access_token }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to send reminder."); status.textContent = `Email reminder sent to ${tenant.email}.`; } catch (error) { status.textContent = error.message; } }
-  const rentButton = event.target.closest("[data-rent-id]"); if (rentButton) { const item = state.units.find(entry => entry.id === rentButton.dataset.rentId); const month = selectedRentMonth(); const existing = state.rentHistory.find(entry => entry.month === month && entry.unit_id === item.id); const paid = !(existing ? existing.paid : month === monthKey && item.paid); const received = paid ? new Intl.DateTimeFormat("en-US", { month:"short", day:"numeric", year:"numeric" }).format(new Date()) : ""; const { error } = await supabase.from("rent_history").upsert({ month, unit_id:item.id, unit_name:item.name, rent:existing ? existing.rent : item.rent, paid, received }, { onConflict:"month,unit_id" }); if (error) alert(error.message); else { if (month === monthKey) await supabase.from("units").update({ paid, received }).eq("id", item.id); await loadData(); } }
+  const rentButton = event.target.closest("[data-rent-id]"); if (rentButton) { const item = state.units.find(entry => entry.id === rentButton.dataset.rentId); const month = selectedTenantMonth(); const existing = state.rentHistory.find(entry => entry.month === month && entry.unit_id === item.id); const paid = !(existing ? existing.paid : month === monthKey && item.paid); const received = paid ? new Intl.DateTimeFormat("en-US", { month:"short", day:"numeric", year:"numeric" }).format(new Date()) : ""; const { error } = await supabase.from("rent_history").upsert({ month, unit_id:item.id, unit_name:item.name, rent:existing ? existing.rent : item.rent, paid, received }, { onConflict:"month,unit_id" }); if (error) alert(error.message); else { if (month === monthKey) await supabase.from("units").update({ paid, received }).eq("id", item.id); await loadData(); } }
+  const saveAmount = event.target.closest("[data-save-amount]"); if (saveAmount) { await saveInlineAmount(saveAmount.dataset.saveAmount, saveAmount.dataset.saveId); }
   const maintenanceButton = event.target.closest("[data-maintenance-id]"); if (maintenanceButton) { const item = state.maintenance.find(entry => entry.id === maintenanceButton.dataset.maintenanceId); const { error } = await supabase.from("maintenance").update({ done: !item.done }).eq("id", item.id); if (error) alert(error.message); else await loadData(); }
   const utilityButton = event.target.closest("[data-utility-id]"); if (utilityButton) { const item = state.utilities.find(entry => entry.id === utilityButton.dataset.utilityId); const month = selectedUtilityMonth(); const existing = state.utilityHistory.find(entry => entry.month === month && entry.utility_id === item.id); const paid = !(existing ? existing.paid : month === monthKey && item.paid); const due = monthEndDue(month); const { error } = await supabase.from("utility_history").upsert({ month, utility_id:item.id, service:item.service, amount:existing ? existing.amount : item.amount, due, paid }, { onConflict:"month,utility_id" }); if (error) alert(error.message); else { if (month === monthKey) await supabase.from("utilities").update({ paid, due }).eq("id", item.id); await loadData(); } }
   const deleteButton = event.target.closest("[data-delete-expense]"); if (deleteButton) { const { error } = await supabase.from("expenses").delete().eq("id", deleteButton.dataset.deleteExpense); if (error) alert(error.message); else await loadData(); }
   if (event.target.closest("#export-button")) { const data = new Blob([JSON.stringify(state, null, 2)], { type:"application/json" }); const link = document.createElement("a"); link.href = URL.createObjectURL(data); link.download = "1179-bush-st-ledger.json"; link.click(); URL.revokeObjectURL(link.href); }
 });
 document.querySelector("#history-month").addEventListener("change", renderHistory);
-document.querySelector("#rent-month").addEventListener("change", renderRent);
+document.querySelector("#tenant-month").addEventListener("change", renderTenants);
 document.querySelector("#utility-month").addEventListener("change", renderUtilities);
+document.addEventListener("change", async event => {
+  const leaseSelect = event.target.closest("[data-lease-tenant]");
+  if (!leaseSelect || !isAdmin) return;
+  const [lease_start, lease_end] = leaseSelect.value.split("|");
+  const { error } = await supabase.from("tenants").update({ lease_start, lease_end }).eq("id", leaseSelect.dataset.leaseTenant);
+  if (error) alert(error.message); else await loadData();
+});
+document.addEventListener("keydown", event => { if (event.key === "Enter" && event.target.classList.contains("inline-amount")) { event.preventDefault(); event.target.closest(".inline-edit")?.querySelector("[data-save-amount]")?.click(); } });
 document.querySelectorAll("[data-close-modal]").forEach(button => button.addEventListener("click", () => modal.close()));
 document.querySelector("#entry-form").addEventListener("submit", async event => {
   const form = event.target; event.preventDefault();
@@ -221,12 +304,10 @@ document.querySelector("#entry-form").addEventListener("submit", async event => 
     if (month === monthKey) await supabase.from("utilities").update({ ...updates, due }).eq("id", id);
     modal.close(); await loadData(); return;
   }
-  if (type === "rentHistory" || type === "utilityHistory") {
+  if (type === "utilityHistory") {
     const id = form.dataset.id;
-    const table = type === "rentHistory" ? "rent_history" : "utility_history";
-    const historicalUtility = type === "utilityHistory" ? state.utilityHistory.find(item => item.id === id) : null;
-    const updates = type === "rentHistory" ? { rent: Number(data.get("rent")) } : { amount: Number(data.get("amount")), due: monthEndDue(historicalUtility.month) };
-    const { error } = await supabase.from(table).update(updates).eq("id", id);
+    const historicalUtility = state.utilityHistory.find(item => item.id === id);
+    const { error } = await supabase.from("utility_history").update({ amount: Number(data.get("amount")), due: monthEndDue(historicalUtility.month) }).eq("id", id);
     if (error) { alert(error.message); return; }
     modal.close(); await loadData(); return;
   }

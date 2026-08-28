@@ -25,3 +25,10 @@ dialog { border:0; padding:0; background:transparent; width:min(500px,calc(100vw
 .photo-upload { display: inline-block; }
 .photo-upload span { cursor: pointer; }
 .photo-upload input[type="file"] { display: none; }
+.inline-edit { display: flex; align-items: center; gap: 6px; }
+.inline-edit .inline-amount { width: 92px; padding: 7px 8px; font: 500 13px "DM Mono", monospace; }
+.inline-edit .small-button { flex: none; }
+.inline-select { width: 100%; min-width: 150px; padding: 7px 8px; font: 500 11px "DM Mono", monospace; }
+#tenant-table td { vertical-align: top; }
+#tenant-table td small { color: var(--muted); font-size: 11px; }
+#tenant-table td .small-button { margin-top: 6px; }
