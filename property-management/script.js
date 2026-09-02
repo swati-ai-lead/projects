@@ -433,7 +433,8 @@ function syncTenantRentsToUnits() {
 function renderAll() {
   document.querySelector("#utility-month").value ||= monthKey.slice(0, 7);
   renderOwnerDashboard(); renderTenantPortal(); renderOverview(); renderMaintenance(); renderUtilities(); renderUnits(); renderExpenses(); renderHistory(); renderTenants();
-  document.querySelectorAll("[data-open-modal]").forEach(button => button.hidden = !isAdmin);
+  const tenantModalTypes = ["tenantMaintenanceRequest", "leaseCancellationRequest", "parkingRequest"];
+  document.querySelectorAll("[data-open-modal]").forEach(button => button.hidden = !isAdmin && !tenantModalTypes.includes(button.dataset.openModal));
   document.querySelectorAll(".read-only-note").forEach(note => note.remove());
   applyAccessMode();
 }
@@ -557,7 +558,8 @@ document.addEventListener("click", async event => {
   if (event.target.closest("#auth-mode-button")) setAuthMode(authMode === "signin" ? "signup" : "signin");
   if (event.target.closest("#sign-out-button")) await supabase.auth.signOut();
   const generateBill = event.target.closest("[data-generate-bill]"); if (generateBill) generateTenantBill(generateBill.dataset.generateBill);
-  const tenantRequestButton = event.target.closest("[data-open-modal]"); if (!isAdmin && tenantRequestButton) openModal(tenantRequestButton.dataset.openModal);
+  const tenantModalTypes = ["tenantMaintenanceRequest", "leaseCancellationRequest", "parkingRequest"];
+  const tenantRequestButton = event.target.closest("[data-open-modal]"); if (!isAdmin && tenantRequestButton && tenantModalTypes.includes(tenantRequestButton.dataset.openModal)) openModal(tenantRequestButton.dataset.openModal);
   if (!isAdmin) return;
   const modalButton = event.target.closest("[data-open-modal]"); if (modalButton) openModal(modalButton.dataset.openModal);
   const editUtility = event.target.closest("[data-edit-utility]"); if (editUtility) { const item = state.utilities.find(entry => entry.id === editUtility.dataset.editUtility); const record = state.utilityHistory.find(entry => entry.month === selectedUtilityMonth() && entry.utility_id === item.id); openModal("utilityEdit"); document.querySelector("[name=amount]").value = record ? record.amount : item.amount; document.querySelector("#entry-form").dataset.id = item.id; }
