@@ -26,6 +26,7 @@
         <a class="nav-link" href="#expenses" data-view="expenses"><span>06</span> Expenses</a>
         <a class="nav-link" href="#history" data-view="history"><span>07</span> History</a>
         <a class="nav-link" href="#units" data-view="units"><span>08</span> Units</a>
+        <a class="nav-link" href="#parking" data-view="parking"><span>09</span> Parking</a>
         <a class="nav-link tenant-nav" href="#tenant-portal" data-view="tenant-portal"><span>01</span> My portal</a>
       </nav>
       <p class="sidebar-note">A quiet record of the work that keeps a home running.</p>
@@ -67,7 +68,21 @@
           <section class="owner-ledger"><div class="section-heading"><div><p class="eyebrow">CHARGES</p><h3>Bill details</h3></div></div><div class="owner-line-list" id="tenant-charge-list"></div></section>
         </div>
         <div class="history-section"><div class="section-heading"><div><p class="eyebrow">REQUESTS</p><h3>Need something handled?</h3></div><div class="button-row"><button class="small-button" data-open-modal="tenantMaintenanceRequest">Maintenance</button><button class="small-button" data-open-modal="leaseCancellationRequest">Cancel lease</button><button class="small-button" data-open-modal="parkingRequest">Parking</button></div></div><div class="request-grid" id="tenant-request-list"></div></div>
-        <div class="history-section"><div class="section-heading"><div><p class="eyebrow">PARKING</p><h3>Additional spot terms</h3></div></div><div class="owner-line-list"><div class="owner-line"><span id="tenant-parking-terms">Parking terms are not set yet.</span></div></div></div>
+        <div class="history-section"><div class="section-heading"><div><p class="eyebrow">PARKING</p><h3>Driveway spot</h3></div></div><div class="owner-line-list" id="tenant-parking-list"></div></div>
+      </section>
+
+      <section class="view" id="parking">
+        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">PARKING</p><h2>Driveway assignment.</h2><p>Manage the single driveway spot, monthly charge, location details, and tenant terms.</p></div><div class="button-row"><button class="primary-button" data-open-modal="parkingTerms">Parking terms</button><button class="primary-button" data-open-modal="parkingAssignment">Assign spot</button></div></div>
+        <div class="owner-summary-grid">
+          <article class="owner-panel owner-net"><p class="eyebrow">ACTIVE SPOT</p><strong id="parking-active-tenant">Available</strong><span>Only one active driveway assignment is allowed</span></article>
+          <article class="owner-panel"><p>Monthly charge</p><strong id="parking-default-charge">$100</strong><span>Default tenant parking rent</span></article>
+          <article class="owner-panel"><p>Requests</p><strong id="parking-open-requests">0</strong><span>Open parking requests</span></article>
+        </div>
+        <div class="owner-ledger-grid">
+          <section class="owner-ledger"><div class="section-heading"><div><p class="eyebrow">LOCATION</p><h3>Where to park</h3></div></div><div class="owner-line-list"><div class="owner-line"><span id="parking-location-detail">Driveway spot</span></div></div></section>
+          <section class="owner-ledger"><div class="section-heading"><div><p class="eyebrow">TERMS</p><h3>Tenant conditions</h3></div></div><div class="owner-line-list"><div class="owner-line"><span id="parking-terms-detail">Parking terms are not set yet.</span></div></div></section>
+        </div>
+        <div class="history-section"><div class="section-heading"><div><p class="eyebrow">ASSIGNMENTS</p><h3>Parking ledger</h3></div></div><div class="request-grid" id="parking-assignment-list"></div></div>
       </section>
 
       <section class="view" id="overview">
