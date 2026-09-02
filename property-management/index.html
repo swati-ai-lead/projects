@@ -26,6 +26,7 @@
         <a class="nav-link" href="#expenses" data-view="expenses"><span>06</span> Expenses</a>
         <a class="nav-link" href="#history" data-view="history"><span>07</span> History</a>
         <a class="nav-link" href="#units" data-view="units"><span>08</span> Units</a>
+        <a class="nav-link tenant-nav" href="#tenant-portal" data-view="tenant-portal"><span>01</span> My portal</a>
       </nav>
       <p class="sidebar-note">A quiet record of the work that keeps a home running.</p>
     </aside>
@@ -49,6 +50,21 @@
           <section class="owner-ledger"><div class="section-heading"><div><p class="eyebrow">INCOME</p><h3>What tenants owe</h3></div></div><div class="owner-line-list" id="owner-income-list"></div></section>
         </div>
         <div class="history-section"><p class="eyebrow">TENANT BREAKDOWN</p><div class="table-wrap"><table><thead><tr><th>Tenant</th><th>Unit</th><th>Rent</th><th>Utilities charged</th><th>Expenses</th><th>Total due</th><th>Status</th></tr></thead><tbody id="owner-tenant-table"></tbody></table></div></div>
+      </section>
+
+      <section class="view" id="tenant-portal">
+        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">TENANT PORTAL</p><h2>Your monthly bill.</h2><p>Rent, utilities, assigned expenses, and lease details in one place.</p></div><button class="primary-button" id="tenant-generate-bill" type="button">Generate bill</button></div>
+        <div class="history-controls"><label>Month<select id="tenant-portal-month"></select></label></div>
+        <div class="tenant-portal-grid">
+          <article class="owner-panel owner-net"><p class="eyebrow">TOTAL DUE</p><strong id="tenant-total-due">$0</strong><span id="tenant-status-note">Pending</span></article>
+          <article class="owner-panel"><p>Base rent</p><strong id="tenant-base-rent">$0</strong><span>Monthly lease rent</span></article>
+          <article class="owner-panel"><p>Utilities</p><strong id="tenant-utilities-total">$0</strong><span>Monthly utility share</span></article>
+          <article class="owner-panel"><p>Expenses</p><strong id="tenant-expenses-total">$0</strong><span>Assigned expenses only</span></article>
+        </div>
+        <div class="owner-ledger-grid">
+          <section class="owner-ledger"><div class="section-heading"><div><p class="eyebrow">LEASE</p><h3 id="tenant-lease-title">Lease details</h3></div><a class="text-link" id="tenant-lease-link" href="#" target="_blank" rel="noreferrer">Open lease</a></div><div class="owner-line-list" id="tenant-lease-list"></div></section>
+          <section class="owner-ledger"><div class="section-heading"><div><p class="eyebrow">CHARGES</p><h3>Bill details</h3></div></div><div class="owner-line-list" id="tenant-charge-list"></div></section>
+        </div>
       </section>
 
       <section class="view" id="overview">
@@ -102,7 +118,7 @@
   </div>
 
   <dialog id="entry-modal"><form id="entry-form"><div class="modal-top"><div><p class="eyebrow" id="modal-eyebrow">NEW ENTRY</p><h3 id="modal-title"></h3></div><button class="icon-button" type="button" data-close-modal aria-label="Close">&#215;</button></div><div id="form-fields"></div><div class="modal-actions"><button class="quiet-button" type="button" data-close-modal>Cancel</button><button class="primary-button" id="save-entry" type="submit">Save entry</button></div></form></dialog>
-  <section class="auth-screen" id="auth-screen" aria-labelledby="auth-title"><div class="auth-card"><span class="brand-mark">B</span><p class="eyebrow">1179 BUSH ST</p><h2 id="auth-title">Property access</h2><p id="auth-message">Sign in to open the property ledger.</p><form id="auth-form"><label>Email<input id="auth-email" type="email" autocomplete="email" required placeholder="you@example.com" /></label><label>Password<input id="auth-password" type="password" autocomplete="current-password" required placeholder="Your password" /></label><p class="form-message" id="password-guidance">Use at least 12 characters, including uppercase, lowercase, a number, and a symbol.</p><button class="primary-button" id="auth-submit" type="submit">Sign in</button></form><button class="text-button" id="auth-mode-button" type="button">Create a user account</button><p class="auth-note">Only <strong>sushmit.gujar@gmail.com</strong> can create the administrator account. All other accounts are view-only.</p></div></section>
+  <section class="auth-screen" id="auth-screen" aria-labelledby="auth-title"><div class="auth-card"><span class="brand-mark">B</span><p class="eyebrow">1179 BUSH ST</p><h2 id="auth-title">Property access</h2><p id="auth-message">Sign in to open the property ledger.</p><form id="auth-form"><label>Email or username<input id="auth-email" type="text" autocomplete="username" required placeholder="you@example.com or tenantuser123" /></label><label>Password<input id="auth-password" type="password" autocomplete="current-password" required placeholder="Your password" /></label><p class="form-message" id="password-guidance">Use the owner email for admin access, or the tenant username provided by the property manager.</p><button class="primary-button" id="auth-submit" type="submit">Sign in</button></form><button class="text-button" id="auth-mode-button" type="button">Create a user account</button><p class="auth-note">Only <strong>sushmit.gujar@gmail.com</strong> can create the administrator account. Tenant accounts open a limited tenant-only portal.</p></div></section>
   <script type="module" src="script.js"></script>
 </body>
 </html>
