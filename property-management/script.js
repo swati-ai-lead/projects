@@ -15,6 +15,17 @@ let authMode = "signin";
 let state = { units: [], maintenance: [], utilities: [], expenses: [], rentHistory: [], utilityHistory: [], tenants: [], mortgageSchedule: [], tenantRequests: [], appSettings: [], parkingAssignments: [] };
 const TENANT_LOGIN_DOMAIN = "1179bush.local";
 const requestLabels = { maintenance:"Maintenance", lease_cancellation:"Lease cancellation", parking:"Parking" };
+const adminNavLinks = [
+  ["01", "Owner", "owner"],
+  ["02", "Overview", "overview"],
+  ["03", "Tenants", "tenants"],
+  ["04", "Maintenance", "maintenance"],
+  ["05", "Utilities", "utilities"],
+  ["06", "Expenses", "expenses"],
+  ["07", "History", "history"],
+  ["08", "Units", "units"],
+  ["09", "Parking", "parking"]
+];
 
 async function getClient() {
   const response = await fetch("/api/config");
@@ -316,13 +327,16 @@ function activateView(target) {
   document.querySelector("#page-title").textContent = target === "tenant-portal" ? "Tenant portal" : target === "owner" ? "Owner dashboard" : target === "overview" ? "Property overview" : target.charAt(0).toUpperCase() + target.slice(1);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
+function renderNavigation() {
+  const links = isAdmin ? adminNavLinks : [["01", "My portal", "tenant-portal"]];
+  document.querySelector("nav").innerHTML = links.map(([number, label, view]) => `<a class="nav-link ${view === (isAdmin ? "owner" : "tenant-portal") ? "active" : ""}" href="#${view}" data-view="${view}"><span>${number}</span> ${label}</a>`).join("");
+}
 function applyAccessMode() {
+  renderNavigation();
   document.body.classList.toggle("tenant-mode", !isAdmin);
   document.querySelector(".brand").href = isAdmin ? "#owner" : "#tenant-portal";
   document.querySelector("#export-button").hidden = !isAdmin;
-  document.querySelectorAll(".nav-link:not(.tenant-nav)").forEach(link => link.hidden = !isAdmin);
-  document.querySelectorAll(".tenant-nav").forEach(link => link.hidden = isAdmin);
-  if (!isAdmin) activateView("tenant-portal");
+  activateView(isAdmin ? "owner" : "tenant-portal");
 }
 function renderOwnerDashboard() {
   const select = document.querySelector("#owner-month");
