@@ -10,7 +10,6 @@ async function supabaseRequest(path, options = {}) {
   const url = clean(process.env.SUPABASE_URL);
   const serviceRoleKey = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if (!url || !serviceRoleKey) throw new Error("Tenant login management is not configured.");
-  assertServerKey(serviceRoleKey);
   const response = await fetch(`${url}${path}`, {
     ...options,
     headers: {
@@ -28,18 +27,6 @@ async function supabaseRequest(path, options = {}) {
     throw new Error(message);
   }
   return data;
-}
-
-function assertServerKey(key) {
-  if (key.startsWith("sb_secret_")) return;
-  const parts = key.split(".");
-  if (parts.length !== 3) throw new Error("SUPABASE_SERVICE_ROLE_KEY must be a Supabase server key, not the API URL or anon key.");
-  try {
-    const payload = JSON.parse(Buffer.from(parts[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
-    if (payload.role !== "service_role") throw new Error("wrong role");
-  } catch (_error) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY must be the legacy service_role JWT or a Supabase Secret key from Project Settings > API Keys.");
-  }
 }
 
 async function verifyAdmin(accessToken) {
