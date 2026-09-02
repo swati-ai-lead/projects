@@ -1,4 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
+import * as pdfjsLib from "https://esm.sh/pdfjs-dist@4.10.38/build/pdf.mjs";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://esm.sh/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
 
 const monthName = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(new Date());
 const monthKey = `${new Date().toISOString().slice(0, 7)}-01`;
@@ -7,7 +11,7 @@ let supabase;
 let session;
 let isAdmin = false;
 let authMode = "signin";
-let state = { units: [], maintenance: [], utilities: [], expenses: [], rentHistory: [], utilityHistory: [], tenants: [] };
+let state = { units: [], maintenance: [], utilities: [], expenses: [], rentHistory: [], utilityHistory: [], tenants: [], mortgageSchedule: [] };
 
 async function getClient() {
   const response = await fetch("/api/config");
@@ -15,7 +19,12 @@ async function getClient() {
   const config = await response.json();
   return createClient(config.url, config.anonKey, { auth: { storage: sessionStorage, persistSession: true, autoRefreshToken: true } });
 }
-function currentMonthExpenses() { return state.expenses.reduce((sum, item) => sum + Number(item.amount), 0) + state.utilities.reduce((sum, item) => sum + Number(item.amount), 0); }
+function expenseMonth(item) { return item.date ? `${item.date.slice(0, 7)}-01` : monthKey; }
+function expensesForMonth(month) { return state.expenses.filter(item => expenseMonth(item) === month); }
+function mortgageEntryForMonth(month) { return state.mortgageSchedule.filter(item => item.effective_month <= month).sort((a, b) => b.effective_month.localeCompare(a.effective_month))[0]; }
+function mortgageForMonth(month) { return Number(mortgageEntryForMonth(month)?.amount || 0); }
+function utilityForMonth(utility, month) { const record = state.utilityHistory.find(entry => entry.month === month && entry.utility_id === utility.id); return { amount:Number(record ? record.amount : utility.amount), paid:record ? record.paid : month === monthKey && utility.paid, due:record ? record.due : utility.due, bill_document:record?.bill_document, bill_url:record?.bill_url }; }
+function currentMonthExpenses() { return expensesForMonth(monthKey).filter(item => item.category !== "Mortgage").reduce((sum, item) => sum + Number(item.amount), 0) + mortgageForMonth(monthKey) + state.utilities.reduce((sum, item) => sum + Number(utilityForMonth(item, monthKey).amount), 0); }
 const HISTORY_START = "2025-04-01";
 function monthLabel(month) { return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${month}T00:00:00Z`)); }
 function shortMonthLabel(date) { return date ? new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${date.slice(0, 10)}T00:00:00Z`)) : "?"; }
@@ -28,9 +37,230 @@ function ledgerMonths() {
   }
   return months.reverse();
 }
+function ownerMonths() {
+  const months = new Set(ledgerMonths());
+  const start = new Date(`${monthKey}T00:00:00Z`);
+  for (let offset = 1; offset <= 24; offset += 1) {
+    const date = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + offset, 1));
+    months.add(date.toISOString().slice(0, 10));
+  }
+  return [...months].sort().reverse();
+}
 function selectedTenantMonth() { return document.querySelector("#tenant-month").value || monthKey; }
 function selectedUtilityMonth() { return `${document.querySelector("#utility-month").value || monthKey.slice(0, 7)}-01`; }
+function selectedOwnerMonth() { return document.querySelector("#owner-month").value || monthKey; }
 function monthEndDue(month) { return new Intl.DateTimeFormat("en-US", { month:"short", day:"numeric", timeZone:"UTC" }).format(new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0))); }
+function parseAmountFromBillText(text) {
+  const normalized = text.replace(/\s+/g, " ");
+  const patterns = [/total\s+(?:amount\s+)?due\D{0,30}\$?([0-9,]+\.\d{2})/i, /amount\s+due\D{0,30}\$?([0-9,]+\.\d{2})/i, /new\s+charges\D{0,30}\$?([0-9,]+\.\d{2})/i, /payment\s+due\D{0,30}\$?([0-9,]+\.\d{2})/i, /mortgage\s+payment\D{0,30}\$?([0-9,]+\.\d{2})/i, /\$\s*([0-9,]+\.\d{2})/];
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    if (match) return Number(match[1].replace(/,/g, ""));
+  }
+  return null;
+}
+async function readBillText(file) {
+  if (!(file instanceof File) || !file.size) return "";
+  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data:buffer }).promise;
+    const pages = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      pages.push(content.items.map(item => item.str).join(" "));
+    }
+    return pages.join("\n");
+  }
+  if (file.type.startsWith("text/") || /\.(csv|txt)$/i.test(file.name)) return file.text();
+  return "";
+}
+async function parseBillFile(file) { const text = await readBillText(file); return text ? parseAmountFromBillText(text) : null; }
+async function uploadBillFile(file, folder) {
+  if (!(file instanceof File) || !file.size) return null;
+  const filename = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+  const path = `${folder}/${Date.now()}-${filename}`;
+  const { error } = await supabase.storage.from("bills").upload(path, file, { contentType:file.type || "application/octet-stream", upsert:false });
+  if (error) throw error;
+  return path;
+}
+async function signedBillUrl(path) {
+  if (!path) return null;
+  const { data } = await supabase.storage.from("bills").createSignedUrl(path, 3600);
+  return data?.signedUrl || null;
+}
+function tenantExpenseCharges(month) {
+  const activeTenants = state.tenants.filter(item => item.status !== "Ended");
+  const activeTenantIds = activeTenants.map(item => item.id);
+  const charges = new Map(activeTenantIds.map(id => [id, { total:0, lines:[] }]));
+  expensesForMonth(month).filter(item => item.category !== "Mortgage" && item.allocation !== "owner").forEach(expense => {
+    const tenantIds = expense.allocation === "all_tenants" ? activeTenantIds : expense.tenant_ids || [];
+    if (!tenantIds.length) return;
+    const share = Number(expense.amount || 0) / tenantIds.length;
+    tenantIds.forEach(id => {
+      if (!charges.has(id)) charges.set(id, { total:0, lines:[] });
+      const entry = charges.get(id);
+      entry.total += share;
+      entry.lines.push({ description:expense.description, category:expense.category, amount:share, bill_url:expense.bill_url });
+    });
+  });
+  return charges;
+}
+function tenantMonthlyLedger(month) {
+  const isCurrentMonth = month === monthKey;
+  const expenseCharges = tenantExpenseCharges(month);
+  const utilityAmount = service => {
+    const utility = state.utilities.find(entry => entry.service === service);
+    return utility ? utilityForMonth(utility, month).amount : 0;
+  };
+  const pecoShare = utilityAmount("PECO") / 4;
+  const waterShare = utilityAmount("Water") / 4;
+  const trash = utilityAmount("Trash");
+  const sewer = utilityAmount("Sewer");
+  return state.tenants.filter(item => item.status !== "Ended").map(item => {
+    const record = state.rentHistory.find(entry => entry.month === month && entry.unit_id === item.unit_id);
+    const unit = state.units.find(entry => entry.id === item.unit_id);
+    const rent = Number(record ? record.rent : item.monthly_rent || 0);
+    const paid = record ? record.paid : isCurrentMonth && unit?.paid;
+    const utilityCharges = pecoShare + waterShare + trash + sewer + WIFI_PER_TENANT;
+    const extraExpenses = expenseCharges.get(item.id)?.total || 0;
+    const extraExpenseLines = expenseCharges.get(item.id)?.lines || [];
+    return { ...item, rent, paid, utilityCharges, extraExpenses, extraExpenseLines, totalDue:rent + utilityCharges + extraExpenses };
+  });
+}
+function tenantBillDetails(tenant, month) {
+  const utilityAmount = service => {
+    const utility = state.utilities.find(entry => entry.service === service);
+    return utility ? utilityForMonth(utility, month).amount : 0;
+  };
+  const pecoShare = utilityAmount("PECO") / 4;
+  const waterShare = utilityAmount("Water") / 4;
+  const utilityLines = [
+    { label:"PECO", note:"Split by 4", amount:pecoShare },
+    { label:"Water", note:"Split by 4", amount:waterShare },
+    { label:"Trash", note:"Charged to tenant", amount:utilityAmount("Trash") },
+    { label:"Sewer", note:"Charged to tenant", amount:utilityAmount("Sewer") },
+    { label:"WiFi", note:"Flat monthly charge", amount:WIFI_PER_TENANT }
+  ];
+  const expenseLines = tenant.extraExpenseLines || [];
+  return { utilityLines, expenseLines };
+}
+function drawBillRow(doc, y, label, note, amount, shaded = false) {
+  if (shaded) { doc.setFillColor(244, 239, 226); doc.rect(18, y - 6, 174, 13, "F"); }
+  doc.setTextColor(23, 51, 61);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text(label, 24, y);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(98, 116, 122);
+  doc.setFontSize(8);
+  if (note) doc.text(note, 24, y + 4.5);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(23, 51, 61);
+  doc.text(money(amount), 184, y, { align:"right" });
+}
+function generateTenantBill(tenantId) {
+  const month = selectedTenantMonth();
+  const tenant = tenantMonthlyLedger(month).find(item => item.id === tenantId);
+  if (!tenant) { alert("Tenant bill details are not available for this month."); return; }
+  const { utilityLines, expenseLines } = tenantBillDetails(tenant, month);
+  const doc = new jsPDF({ unit:"mm", format:"letter" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  doc.setFillColor(23, 51, 61);
+  doc.rect(0, 0, pageWidth, 54, "F");
+  doc.setFillColor(184, 225, 213);
+  doc.rect(18, 16, 14, 14, "F");
+  doc.setTextColor(33, 78, 92);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text("B", 25, 25.5, { align:"center" });
+  doc.setTextColor(255, 254, 250);
+  doc.setFontSize(22);
+  doc.text("1179 Bush St", 38, 21);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text("Tenant Monthly Bill", 38, 29);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(28);
+  doc.text(money(tenant.totalDue), pageWidth - 18, 25, { align:"right" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text(`Total due for ${monthLabel(month)}`, pageWidth - 18, 33, { align:"right" });
+
+  doc.setFillColor(255, 254, 250);
+  doc.roundedRect(18, 66, 174, 34, 2, 2, "F");
+  doc.setDrawColor(217, 222, 216);
+  doc.roundedRect(18, 66, 174, 34, 2, 2, "S");
+  doc.setTextColor(237, 114, 88);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("BILL TO", 24, 77);
+  doc.setTextColor(23, 51, 61);
+  doc.setFontSize(15);
+  doc.text(tenant.full_name, 24, 86);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(98, 116, 122);
+  doc.text(`${tenant.unit_name} | ${tenant.email || "No email on file"}`, 24, 93);
+  doc.text(`Generated ${new Intl.DateTimeFormat("en-US", { month:"short", day:"numeric", year:"numeric" }).format(new Date())}`, 184, 77, { align:"right" });
+
+  let y = 118;
+  doc.setTextColor(237, 114, 88);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("CHARGES", 18, y);
+  y += 12;
+  drawBillRow(doc, y, "Base rent", "Monthly lease rent", tenant.rent, true); y += 16;
+  utilityLines.forEach((line, index) => { drawBillRow(doc, y, line.label, line.note, line.amount, index % 2 === 0); y += 14; });
+  if (expenseLines.length) {
+    doc.setTextColor(237, 114, 88);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("OTHER EXPENSES", 18, y + 3);
+    y += 15;
+    expenseLines.forEach((line, index) => { drawBillRow(doc, y, line.category, line.description, line.amount, index % 2 === 0); y += 14; });
+  }
+  doc.setFillColor(33, 78, 92);
+  doc.roundedRect(18, y + 5, 174, 20, 2, 2, "F");
+  doc.setTextColor(255, 254, 250);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text("Total due", 24, y + 18);
+  doc.setFontSize(18);
+  doc.text(money(tenant.totalDue), 184, y + 18, { align:"right" });
+  doc.setTextColor(98, 116, 122);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("Manual ledger edits remain the source of truth for rent, utilities, and expense assignments.", 18, 267);
+  const filename = `${tenant.full_name}-${month.slice(0, 7)}-bill.pdf`.replace(/[^a-zA-Z0-9._-]/g, "-");
+  doc.save(filename);
+}
+function renderOwnerDashboard() {
+  const select = document.querySelector("#owner-month");
+  const months = [...new Set([...ownerMonths(), ...state.rentHistory.map(item => item.month), ...state.utilityHistory.map(item => item.month), ...state.expenses.map(expenseMonth), ...state.mortgageSchedule.map(item => item.effective_month)])].sort().reverse();
+  const month = months.includes(select.value) ? select.value : monthKey;
+  select.innerHTML = months.map(item => `<option value="${item}">${monthLabel(item)}</option>`).join("");
+  select.value = month;
+  const tenants = tenantMonthlyLedger(month);
+  const rentIncome = tenants.reduce((sum, item) => sum + item.rent, 0);
+  const utilityIncome = tenants.reduce((sum, item) => sum + item.utilityCharges, 0);
+  const tenantExpenseIncome = tenants.reduce((sum, item) => sum + item.extraExpenses, 0);
+  const utilitiesExpense = state.utilities.reduce((sum, item) => sum + utilityForMonth(item, month).amount, 0);
+  const otherExpenses = expensesForMonth(month).filter(item => item.category !== "Mortgage").reduce((sum, item) => sum + Number(item.amount), 0);
+  const mortgageExpense = mortgageForMonth(month);
+  const income = rentIncome + utilityIncome + tenantExpenseIncome;
+  const expenses = mortgageExpense + utilitiesExpense + otherExpenses;
+  const net = income - expenses;
+  document.querySelector("#owner-income-total").textContent = money(income);
+  document.querySelector("#owner-expense-total").textContent = money(expenses);
+  document.querySelector("#owner-net-total").textContent = money(net);
+  document.querySelector("#owner-net-note").textContent = net >= 0 ? "Projected monthly surplus" : "Projected monthly shortfall";
+  const mortgage = mortgageEntryForMonth(month);
+  document.querySelector("#owner-expense-list").innerHTML = `<div class="owner-line"><span>Mortgage<small>${mortgage ? `Effective ${monthLabel(mortgage.effective_month)}` : "No mortgage set yet"}</small>${mortgage?.bill_url ? `<a class="text-link" href="${mortgage.bill_url}" target="_blank" rel="noreferrer">Bill</a>` : ""}</span><strong>${money(mortgageExpense)}</strong></div>${state.utilities.map(item => { const record = utilityForMonth(item, month); return `<div class="owner-line"><span>${item.service}<small>Due ${record.due || monthEndDue(month)}</small>${record.bill_url ? `<a class="text-link" href="${record.bill_url}" target="_blank" rel="noreferrer">Bill</a>` : ""}</span><strong>${money(record.amount)}</strong></div>`; }).join("")}<div class="owner-line"><span>Other expenses<small>Cleaning, supplies, repairs, and owner-only costs</small></span><strong>${money(otherExpenses)}</strong></div>`;
+  document.querySelector("#owner-income-list").innerHTML = `<div class="owner-line"><span>Rent charged</span><strong>${money(rentIncome)}</strong></div><div class="owner-line"><span>Utilities charged<small>PECO/Water split by 4, WiFi flat, Trash/Sewer charged per tenant</small></span><strong>${money(utilityIncome)}</strong></div><div class="owner-line"><span>Tenant expense charges<small>Cleaning and other expenses assigned to tenants</small></span><strong>${money(tenantExpenseIncome)}</strong></div><div class="owner-line total"><span>Total rent + utilities + expenses</span><strong>${money(income)}</strong></div>`;
+  document.querySelector("#owner-tenant-table").innerHTML = tenants.map(item => `<tr><td><strong>${item.full_name}</strong></td><td>${item.unit_name}</td><td>${money(item.rent)}</td><td>${money(item.utilityCharges)}</td><td>${money(item.extraExpenses)}</td><td><strong>${money(item.totalDue)}</strong></td><td><span class="status ${item.paid ? "paid" : ""}">${item.paid ? "Received" : "Pending"}</span></td></tr>`).join("") || "<tr><td colspan='7'>No active tenants for this month.</td></tr>";
+}
 function renderOverview() {
   const due = state.units.reduce((sum, item) => sum + Number(item.rent), 0);
   const collected = state.units.filter(item => item.paid).reduce((sum, item) => sum + Number(item.rent), 0);
@@ -77,7 +307,7 @@ function renderUnits() {
     </article>`;
   }).join("");
 }
-function renderExpenses() { const supplies = state.expenses.filter(item => item.category === "Supplies").reduce((sum, item) => sum + Number(item.amount), 0); document.querySelector("#supplies-total").textContent = money(supplies); document.querySelector("#expense-table").innerHTML = state.expenses.map(item => `<tr><td>${item.date}</td><td><span class="status paid">${item.category}</span></td><td>${item.description}</td><td>${money(item.amount)}</td><td>${isAdmin ? `<button class="small-button" data-delete-expense="${item.id}">Delete</button>` : ""}</td></tr>`).join(""); }
+function renderExpenses() { const supplies = expensesForMonth(monthKey).filter(item => item.category === "Supplies").reduce((sum, item) => sum + Number(item.amount), 0); document.querySelector("#supplies-total").textContent = money(supplies); document.querySelector("#expense-table").innerHTML = state.expenses.map(item => `<tr><td>${item.date}</td><td><span class="status paid">${item.category}</span></td><td>${item.description}</td><td>${money(item.amount)}</td><td>${isAdmin ? `<button class="small-button" data-delete-expense="${item.id}">Delete</button>` : ""}</td></tr>`).join(""); }
 const WIFI_PER_TENANT = 20;
 function renderTenants() {
   const select = document.querySelector("#tenant-month");
@@ -86,6 +316,7 @@ function renderTenants() {
   select.innerHTML = months.map(item => `<option value="${item}">${monthLabel(item)}</option>`).join("");
   select.value = month;
   const isCurrentMonth = month === monthKey;
+  const expenseCharges = tenantExpenseCharges(month);
   const billed = service => { const item = state.utilities.find(entry => entry.service === service); if (!item) return null; const record = state.utilityHistory.find(entry => entry.month === month && entry.utility_id === item.id); return Number(record ? record.amount : item.amount); };
   const peco = billed("PECO"); const water = billed("Water"); const trash = billed("Trash"); const sewer = billed("Sewer");
   document.querySelector("#tenant-table").innerHTML = state.tenants.map(item => {
@@ -96,7 +327,9 @@ function renderTenants() {
     const received = record ? record.received : isCurrentMonth ? unit?.received : "";
     const pecoShare = peco === null ? 0 : peco / 4;
     const waterShare = water === null ? 0 : water / 4;
-    const totalDue = Number(rent || 0) + pecoShare + waterShare + Number(trash || 0) + Number(sewer || 0) + WIFI_PER_TENANT;
+    const extraExpenses = expenseCharges.get(item.id)?.total || 0;
+    const expenseLines = expenseCharges.get(item.id)?.lines || [];
+    const totalDue = Number(rent || 0) + pecoShare + waterShare + Number(trash || 0) + Number(sewer || 0) + WIFI_PER_TENANT + extraExpenses;
     return `<tr>
       <td><strong>${item.unit_name}</strong><br><small class="status ${item.status === "Active" ? "paid" : ""}">${item.status}</small></td>
       <td><strong>${item.full_name}</strong><br><small>${item.email || "-"}</small><br><small>${item.phone || "-"}</small></td>
@@ -107,11 +340,12 @@ function renderTenants() {
       <td>${trash === null ? "-" : money(trash)}</td>
       <td>${sewer === null ? "-" : money(sewer)}</td>
       <td>${money(WIFI_PER_TENANT)}<br><small>flat</small></td>
+      <td>${money(extraExpenses)}${expenseLines.length ? `<br><small>${expenseLines.map(expense => expense.category).join(", ")}</small>` : ""}</td>
       <td><strong>${money(totalDue)}</strong></td>
       <td><span class="status ${paid ? "paid" : ""}">${paid ? "Received" : "Pending"}</span><br><small>${received || "Cash"}</small></td>
-      <td><div class="tenant-actions">${item.lease_url ? `<a class="text-link" href="${item.lease_url}" target="_blank" rel="noreferrer">Lease</a>` : ""}${isAdmin ? `<button class="small-button" data-edit-tenant="${item.id}">Edit</button>${item.email ? `<button class="small-button" data-email-reminder="${item.id}">Send email</button>` : ""}<button class="small-button" data-rent-id="${item.unit_id}">${paid ? "Undo cash" : "Record cash"}</button>` : ""}</div></td>
+      <td><div class="tenant-actions">${item.lease_url ? `<a class="text-link" href="${item.lease_url}" target="_blank" rel="noreferrer">Lease</a>` : ""}<button class="small-button" data-generate-bill="${item.id}">Generate bill</button>${isAdmin ? `<button class="small-button" data-edit-tenant="${item.id}">Edit</button>${item.email ? `<button class="small-button" data-email-reminder="${item.id}">Send email</button>` : ""}<button class="small-button" data-rent-id="${item.unit_id}">${paid ? "Undo cash" : "Record cash"}</button>` : ""}</div></td>
     </tr>`;
-  }).join("") || "<tr><td colspan='12'>No tenants have been added yet.</td></tr>";
+  }).join("") || "<tr><td colspan='13'>No tenants have been added yet.</td></tr>";
 }
 function syncTenantRentWithUnit(tenant) {
   if (!tenant || !tenant.unit_id) return;
@@ -128,28 +362,32 @@ function syncTenantRentsToUnits() {
 }
 function renderAll() {
   document.querySelector("#utility-month").value ||= monthKey.slice(0, 7);
-  renderOverview(); renderMaintenance(); renderUtilities(); renderUnits(); renderExpenses(); renderHistory(); renderTenants();
+  renderOwnerDashboard(); renderOverview(); renderMaintenance(); renderUtilities(); renderUnits(); renderExpenses(); renderHistory(); renderTenants();
   document.querySelectorAll("[data-open-modal]").forEach(button => button.hidden = !isAdmin);
   document.querySelectorAll(".read-only-note").forEach(note => note.remove());
   if (!isAdmin) document.querySelectorAll(".view").forEach(view => view.insertAdjacentHTML("afterbegin", "<p class='read-only-note'>View-only access. Contact the property administrator to update records.</p>"));
 }
 async function loadData() {
-  const [units, maintenance, utilities, expenses, tenants] = await Promise.all([
+  const [units, maintenance, utilities, expenses, tenants, mortgageSchedule] = await Promise.all([
     supabase.from("units").select("*").order("name"),
     supabase.from("maintenance").select("*").order("created_at", { ascending: false }),
     supabase.from("utilities").select("*").order("service"),
     supabase.from("expenses").select("*").order("date", { ascending: false }),
-    supabase.from("tenants").select("*").order("unit_name")
+    supabase.from("tenants").select("*").order("unit_name"),
+    supabase.from("mortgage_schedule").select("*").order("effective_month", { ascending: false })
   ]);
   const error = [units, maintenance, utilities, expenses].find(result => result.error)?.error;
   if (error) throw error;
   const [rentHistory, utilityHistory] = await Promise.all([supabase.from("rent_history").select("*").order("month", { ascending: false }), supabase.from("utility_history").select("*").order("month", { ascending: false })]);
+  const hydratedMortgageSchedule = await Promise.all((mortgageSchedule.error ? [] : mortgageSchedule.data).map(async item => ({ ...item, bill_url:await signedBillUrl(item.bill_document) })));
+  const hydratedUtilityHistory = await Promise.all((utilityHistory.error ? [] : utilityHistory.data).map(async item => ({ ...item, bill_url:await signedBillUrl(item.bill_document) })));
+  const hydratedExpenses = await Promise.all((expenses.error ? [] : expenses.data).map(async item => ({ ...item, allocation:item.allocation || "owner", tenant_ids:item.tenant_ids || [], bill_url:await signedBillUrl(item.bill_document) })));
   const hydratedTenants = await Promise.all((tenants.error ? [] : tenants.data).map(async tenant => {
     if (!tenant.lease_document || tenant.lease_document.startsWith("/")) return { ...tenant, lease_url: tenant.lease_document };
     const { data } = await supabase.storage.from("leases").createSignedUrl(tenant.lease_document, 3600);
     return { ...tenant, lease_url: data?.signedUrl || null };
   }));
-  state = { units: units.data, maintenance: maintenance.data, utilities: utilities.data, expenses: expenses.data, rentHistory: rentHistory.error ? [] : rentHistory.data, utilityHistory: utilityHistory.error ? [] : utilityHistory.data, tenants: hydratedTenants };
+  state = { units: units.data, maintenance: maintenance.data, utilities: utilities.data, expenses: hydratedExpenses, rentHistory: rentHistory.error ? [] : rentHistory.data, utilityHistory: hydratedUtilityHistory, tenants: hydratedTenants, mortgageSchedule: hydratedMortgageSchedule };
   syncTenantRentsToUnits();
   renderAll();
 }
@@ -179,12 +417,13 @@ const modal = document.querySelector("#entry-modal");
 function openModal(type) {
   const forms = {
     rentHistory: { title: "Correct rent history", fields: `<div class="form-grid"><label>Monthly rent<input name="rent" type="number" min="0" step="0.01" required></label></div>` },
-    utilityEdit: { title: "Edit utility bill", fields: `<div class="form-grid"><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label></div>` },
-    utilityHistory: { title: "Correct utility history", fields: `<div class="form-grid"><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label></div>` },
+    utilityEdit: { title: "Edit utility bill", fields: `<div class="form-grid"><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label><label class="full">Bill PDF or text file<input name="bill_file" type="file" accept="application/pdf,text/plain,.txt,.csv,image/*"></label><p class="form-message full" data-parse-status>Upload a bill to try filling the amount from the document. You can edit the amount before saving.</p></div>` },
+    utilityHistory: { title: "Correct utility history", fields: `<div class="form-grid"><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label><label class="full">Bill PDF or text file<input name="bill_file" type="file" accept="application/pdf,text/plain,.txt,.csv,image/*"></label><p class="form-message full" data-parse-status>Upload a bill to try filling the amount from the document. You can edit the amount before saving.</p></div>` },
+    mortgage: { title: `Set mortgage from ${monthLabel(selectedOwnerMonth())} forward`, fields: `<div class="form-grid"><label>Monthly mortgage<input name="amount" type="number" min="0" step="0.01" value="${mortgageForMonth(selectedOwnerMonth())}" required></label><label class="full">Mortgage bill PDF or text file<input name="bill_file" type="file" accept="application/pdf,text/plain,.txt,.csv,image/*"></label><p class="form-message full" data-parse-status>This amount carries forward until you set a newer month. Upload can prefill the amount, and manual edits win.</p></div>` },
     tenant: { title: "Tenant and lease", fields: `<div class="form-grid"><label>Unit<select name="unit_id" required>${state.units.map(item => `<option value="${item.id}">${item.name}</option>`).join("")}</select></label><label>Tenant name<input name="full_name" required></label><label>Email<input name="email" type="email"></label><label>Phone<input name="phone" type="tel"></label><label>Lease start<input name="lease_start" type="date" required></label><label>Lease end<input name="lease_end" type="date" required></label><label>Rent for ${monthLabel(selectedTenantMonth())}<input name="monthly_rent" type="number" min="0" step="0.01" required></label><label>Status<select name="status"><option>Active</option><option>Upcoming</option><option>Ended</option></select></label><label class="full">Lease PDF<input name="lease_file" type="file" accept="application/pdf"></label></div>` },
     maintenance: { title: "New maintenance request", fields: `<div class="form-grid"><label>Title<input name="title" required placeholder="e.g. Replace hallway bulb"></label><label>Unit<select name="unit"><option>Unit 1</option><option>Unit 2</option><option>Both units</option></select></label><label>Priority<select name="priority"><option>Routine</option><option>Attention</option></select></label><label class="full">Details<textarea name="detail" required placeholder="Describe the work needed"></textarea></label></div>` },
-    utility: { title: "Add utility bill", fields: `<div class="form-grid"><label>Service<select name="service"><option>PECO</option><option>WiFi</option><option>Trash</option><option>Sewer</option><option>Water</option></select></label><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label></div>` },
-    expense: { title: "Add supply expense", fields: `<div class="form-grid"><label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" required></label><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label><label class="full">Description<input name="description" required placeholder="e.g. Paint and drop cloths"></label></div>` }
+    utility: { title: "Add utility bill", fields: `<div class="form-grid"><label>Service<select name="service"><option>PECO</option><option>WiFi</option><option>Trash</option><option>Sewer</option><option>Water</option></select></label><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label><label class="full">Bill PDF or text file<input name="bill_file" type="file" accept="application/pdf,text/plain,.txt,.csv,image/*"></label><p class="form-message full" data-parse-status>Upload a bill to try filling the amount from the document. You can edit the amount before saving.</p></div>` },
+    expense: { title: "Add expense", fields: `<div class="form-grid"><label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" required></label><label>Category<select name="category"><option>Cleaning</option><option>Supplies</option><option>Repairs</option><option>Maintenance</option><option>Other</option></select></label><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label><label>Who pays?<select name="allocation"><option value="owner">Owner only</option><option value="all_tenants">All tenants</option><option value="selected_tenants">Selected tenants</option></select></label><div class="tenant-picker full" data-tenant-picker hidden><p class="eyebrow">TENANTS</p>${state.tenants.filter(item => item.status !== "Ended").map(item => `<label><input name="tenant_ids" type="checkbox" value="${item.id}">${item.full_name} (${item.unit_name})</label>`).join("") || "<p class='form-message'>No active tenants available.</p>"}</div><label class="full">Receipt or bill<input name="bill_file" type="file" accept="application/pdf,text/plain,.txt,.csv,image/*"></label><p class="form-message full" data-parse-status>Upload can prefill the amount, and manual edits win.</p><label class="full">Description<input name="description" required placeholder="e.g. Cleaning after move-out"></label></div>` }
   };
   document.querySelector("#modal-title").textContent = forms[type].title;
   document.querySelector("#modal-eyebrow").textContent = type.toUpperCase();
@@ -194,6 +433,25 @@ function openModal(type) {
   delete document.querySelector("#entry-form").dataset.leaseDocument;
   modal.showModal();
 }
+document.querySelector("#entry-form").addEventListener("change", async event => {
+  const allocation = event.target.closest("[name=allocation]");
+  if (allocation) {
+    const picker = document.querySelector("[data-tenant-picker]");
+    if (picker) picker.hidden = allocation.value !== "selected_tenants";
+  }
+  const input = event.target.closest("[name=bill_file]");
+  if (!input?.files?.length) return;
+  const form = document.querySelector("#entry-form");
+  const status = form.querySelector("[data-parse-status]");
+  const amount = form.querySelector("[name=amount]");
+  status.textContent = "Reading bill...";
+  try {
+    const parsed = await parseBillFile(input.files[0]);
+    if (parsed === null) { status.textContent = "Stored on save. I could not read an amount from this file, so keep the manual amount."; return; }
+    amount.value = parsed.toFixed(2);
+    status.textContent = `Found ${money(parsed)}. Review or edit the amount before saving.`;
+  } catch (error) { status.textContent = `Stored on save. Parser could not read this file: ${error.message}`; }
+});
 document.querySelector("#auth-form").addEventListener("submit", async event => {
   event.preventDefault();
   const email = document.querySelector("#auth-email").value.trim().toLowerCase();
@@ -214,9 +472,10 @@ document.querySelector("#auth-form").addEventListener("submit", async event => {
 });
 document.addEventListener("click", async event => {
   const viewLink = event.target.closest("[data-view]");
-  if (viewLink) { event.preventDefault(); const target = viewLink.dataset.view; document.querySelectorAll(".view").forEach(view => view.classList.toggle("active", view.id === target)); document.querySelectorAll(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === target)); document.querySelector("#page-title").textContent = target === "overview" ? "Property overview" : target.charAt(0).toUpperCase() + target.slice(1); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  if (viewLink) { event.preventDefault(); const target = viewLink.dataset.view; document.querySelectorAll(".view").forEach(view => view.classList.toggle("active", view.id === target)); document.querySelectorAll(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === target)); document.querySelector("#page-title").textContent = target === "owner" ? "Owner dashboard" : target === "overview" ? "Property overview" : target.charAt(0).toUpperCase() + target.slice(1); window.scrollTo({ top: 0, behavior: "smooth" }); }
   if (event.target.closest("#auth-mode-button")) setAuthMode(authMode === "signin" ? "signup" : "signin");
   if (event.target.closest("#sign-out-button")) await supabase.auth.signOut();
+  const generateBill = event.target.closest("[data-generate-bill]"); if (generateBill) generateTenantBill(generateBill.dataset.generateBill);
   if (!isAdmin) return;
   const modalButton = event.target.closest("[data-open-modal]"); if (modalButton) openModal(modalButton.dataset.openModal);
   const editUtility = event.target.closest("[data-edit-utility]"); if (editUtility) { const item = state.utilities.find(entry => entry.id === editUtility.dataset.editUtility); const record = state.utilityHistory.find(entry => entry.month === selectedUtilityMonth() && entry.utility_id === item.id); openModal("utilityEdit"); document.querySelector("[name=amount]").value = record ? record.amount : item.amount; document.querySelector("#entry-form").dataset.id = item.id; }
@@ -233,6 +492,7 @@ document.addEventListener("click", async event => {
 document.querySelector("#history-month").addEventListener("change", renderHistory);
 document.querySelector("#tenant-month").addEventListener("change", renderTenants);
 document.querySelector("#utility-month").addEventListener("change", renderUtilities);
+document.querySelector("#owner-month").addEventListener("change", renderOwnerDashboard);
 document.querySelectorAll("[data-close-modal]").forEach(button => button.addEventListener("click", () => modal.close()));
 document.querySelector("#entry-form").addEventListener("submit", async event => {
   const form = event.target; event.preventDefault();
@@ -262,7 +522,9 @@ document.querySelector("#entry-form").addEventListener("submit", async event => 
   }
   if (type === "utilityEdit") {
     const id = form.dataset.id; const month = selectedUtilityMonth(); const utility = state.utilities.find(item => item.id === id); const existing = state.utilityHistory.find(entry => entry.month === month && entry.utility_id === id); const updates = { amount:Number(data.get("amount")) }; const due = monthEndDue(month);
-    const { error } = await supabase.from("utility_history").upsert({ month, utility_id:id, service:utility.service, amount:updates.amount, due, paid:existing?.paid || false }, { onConflict:"month,utility_id" });
+    let billDocument = existing?.bill_document || null;
+    try { billDocument = await uploadBillFile(data.get("bill_file"), `utilities/${utility.service}/${month}`) || billDocument; } catch (error) { alert(error.message); return; }
+    const { error } = await supabase.from("utility_history").upsert({ month, utility_id:id, service:utility.service, amount:updates.amount, due, paid:existing?.paid || false, bill_document:billDocument }, { onConflict:"month,utility_id" });
     if (error) { alert(error.message); return; }
     if (month === monthKey) await supabase.from("utilities").update({ ...updates, due }).eq("id", id);
     modal.close(); await loadData(); return;
@@ -278,9 +540,41 @@ document.querySelector("#entry-form").addEventListener("submit", async event => 
   if (type === "utilityHistory") {
     const id = form.dataset.id;
     const historicalUtility = state.utilityHistory.find(item => item.id === id);
-    const { error } = await supabase.from("utility_history").update({ amount: Number(data.get("amount")), due: monthEndDue(historicalUtility.month) }).eq("id", id);
+    let billDocument = historicalUtility.bill_document || null;
+    try { billDocument = await uploadBillFile(data.get("bill_file"), `utilities/${historicalUtility.service}/${historicalUtility.month}`) || billDocument; } catch (error) { alert(error.message); return; }
+    const { error } = await supabase.from("utility_history").update({ amount: Number(data.get("amount")), due: monthEndDue(historicalUtility.month), bill_document:billDocument }).eq("id", id);
     if (error) { alert(error.message); return; }
     modal.close(); await loadData(); return;
+  }
+  if (type === "mortgage") {
+    const month = selectedOwnerMonth();
+    const existing = state.mortgageSchedule.find(item => item.effective_month === month);
+    let billDocument = existing?.bill_document || null;
+    try { billDocument = await uploadBillFile(data.get("bill_file"), `mortgage/${month}`) || billDocument; } catch (error) { alert(error.message); return; }
+    const record = { effective_month:month, amount:Number(data.get("amount")), bill_document:billDocument };
+    const { error } = await supabase.from("mortgage_schedule").upsert(record, { onConflict:"effective_month" });
+    if (error) { alert(error.message); return; }
+    modal.close(); await loadData(); return;
+  }
+  if (type === "utility") {
+    let billDocument = null;
+    try { billDocument = await uploadBillFile(data.get("bill_file"), `utilities/${data.get("service")}/${monthKey}`); } catch (error) { alert(error.message); return; }
+    const { data:utility, error } = await supabase.from("utilities").insert({ service:data.get("service"), amount:Number(data.get("amount")), due:monthEndDue(monthKey), paid:false }).select().single();
+    if (error) { alert(error.message); return; }
+    const { error: historyError } = await supabase.from("utility_history").upsert({ month:monthKey, utility_id:utility.id, service:utility.service, amount:utility.amount, due:utility.due, paid:false, bill_document:billDocument }, { onConflict:"month,utility_id" });
+    if (historyError) { alert(historyError.message); return; }
+    modal.close(); await loadData(); return;
+  }
+  if (type === "expense") {
+    const allocation = data.get("allocation") || "owner";
+    const tenantIds = allocation === "selected_tenants" ? data.getAll("tenant_ids") : [];
+    if (allocation === "selected_tenants" && !tenantIds.length) { alert("Choose at least one tenant or switch Who pays to Owner only."); return; }
+    let billDocument = null;
+    try { billDocument = await uploadBillFile(data.get("bill_file"), `expenses/${data.get("category")}/${data.get("date")}`); } catch (error) { alert(error.message); return; }
+    const record = { date:data.get("date"), category:data.get("category"), description:data.get("description"), amount:Number(data.get("amount")), allocation, tenant_ids:tenantIds, bill_document:billDocument };
+    const { error } = await supabase.from("expenses").insert(record);
+    if (error) alert(error.message); else { modal.close(); await loadData(); }
+    return;
   }
   const table = { maintenance: "maintenance", utility: "utilities", expense: "expenses" }[type];
   const record = type === "maintenance" ? { title:data.get("title"), unit:data.get("unit"), priority:data.get("priority"), detail:data.get("detail") } : type === "utility" ? { service:data.get("service"), amount:Number(data.get("amount")), due:monthEndDue(monthKey), paid:false } : { date:data.get("date"), category:"Supplies", description:data.get("description"), amount:Number(data.get("amount")) };

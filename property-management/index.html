@@ -13,29 +13,45 @@
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="#overview" aria-label="1179 Bush St dashboard">
+      <a class="brand" href="#owner" aria-label="1179 Bush St dashboard">
         <span class="brand-mark">B</span>
         <span>1179 Bush St<small>PROPERTY LEDGER</small></span>
       </a>
       <nav aria-label="Primary navigation">
-        <a class="nav-link active" href="#overview" data-view="overview"><span>01</span> Overview</a>
-        <a class="nav-link" href="#tenants" data-view="tenants"><span>02</span> Tenants</a>
-        <a class="nav-link" href="#maintenance" data-view="maintenance"><span>03</span> Maintenance</a>
-        <a class="nav-link" href="#utilities" data-view="utilities"><span>04</span> Utilities</a>
-        <a class="nav-link" href="#expenses" data-view="expenses"><span>05</span> Expenses</a>
-        <a class="nav-link" href="#history" data-view="history"><span>06</span> History</a>
-        <a class="nav-link" href="#units" data-view="units"><span>07</span> Units</a>
+        <a class="nav-link active" href="#owner" data-view="owner"><span>01</span> Owner</a>
+        <a class="nav-link" href="#overview" data-view="overview"><span>02</span> Overview</a>
+        <a class="nav-link" href="#tenants" data-view="tenants"><span>03</span> Tenants</a>
+        <a class="nav-link" href="#maintenance" data-view="maintenance"><span>04</span> Maintenance</a>
+        <a class="nav-link" href="#utilities" data-view="utilities"><span>05</span> Utilities</a>
+        <a class="nav-link" href="#expenses" data-view="expenses"><span>06</span> Expenses</a>
+        <a class="nav-link" href="#history" data-view="history"><span>07</span> History</a>
+        <a class="nav-link" href="#units" data-view="units"><span>08</span> Units</a>
       </nav>
       <p class="sidebar-note">A quiet record of the work that keeps a home running.</p>
     </aside>
 
     <main>
       <header class="topbar">
-        <div><p class="eyebrow" id="today"></p><h1 id="page-title">Property overview</h1></div>
+        <div><p class="eyebrow" id="today"></p><h1 id="page-title">Owner dashboard</h1></div>
         <div class="account-tools"><span id="account-label"></span><button class="icon-button" id="export-button" aria-label="Export records" title="Export records">&#8595;</button><button class="small-button" id="sign-out-button">Sign out</button></div>
       </header>
 
-      <section class="view active" id="overview">
+      <section class="view active" id="owner">
+        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">OWNER DASHBOARD</p><h2>Monthly money view.</h2><p>Mortgage and utilities out, rent and utility charges in.</p></div><button class="primary-button" data-open-modal="mortgage">Set mortgage</button></div>
+        <div class="history-controls"><label>Month<select id="owner-month"></select></label></div>
+        <div class="owner-summary-grid">
+          <article class="owner-panel owner-net"><p class="eyebrow">NET MONTHLY POSITION</p><strong id="owner-net-total">$0</strong><span id="owner-net-note">Income minus mortgage and utilities</span></article>
+          <article class="owner-panel"><p>Income</p><strong id="owner-income-total">$0</strong><span>Rent plus utilities charged</span></article>
+          <article class="owner-panel"><p>Expenses</p><strong id="owner-expense-total">$0</strong><span>Mortgage plus utility bills</span></article>
+        </div>
+        <div class="owner-ledger-grid">
+          <section class="owner-ledger"><div class="section-heading"><div><p class="eyebrow">EXPENSES</p><h3>What you are charged</h3></div></div><div class="owner-line-list" id="owner-expense-list"></div></section>
+          <section class="owner-ledger"><div class="section-heading"><div><p class="eyebrow">INCOME</p><h3>What tenants owe</h3></div></div><div class="owner-line-list" id="owner-income-list"></div></section>
+        </div>
+        <div class="history-section"><p class="eyebrow">TENANT BREAKDOWN</p><div class="table-wrap"><table><thead><tr><th>Tenant</th><th>Unit</th><th>Rent</th><th>Utilities charged</th><th>Expenses</th><th>Total due</th><th>Status</th></tr></thead><tbody id="owner-tenant-table"></tbody></table></div></div>
+      </section>
+
+      <section class="view" id="overview">
         <div class="hero-copy"><p class="eyebrow">CURRENT MONTH</p><h2>Your two-unit<br />operating picture.</h2></div>
         <div class="metric-grid">
           <article class="metric-card featured"><p>Cash collected</p><strong id="collected-total">$0</strong><span id="collection-note">0 of 2 units recorded</span></article>
@@ -74,7 +90,7 @@
       <section class="view" id="tenants">
         <div class="view-title-row"><div class="page-intro"><p class="eyebrow">OCCUPANCY, LEASES &amp; RENT</p><h2>Tenants</h2><p>Pick a month, edit the amount in place, and save without leaving the row.</p></div><button class="primary-button" data-open-modal="tenant">+ Add tenant</button></div>
         <div class="history-controls"><label>Month<select id="tenant-month"></select></label></div>
-        <div class="table-wrap"><table><thead><tr><th>Unit</th><th>Tenant</th><th>Lease term</th><th>Monthly rent</th><th>PECO</th><th>Water</th><th>Trash</th><th>Sewer</th><th>WiFi</th><th>Total due</th><th>Rent status</th><th></th></tr></thead><tbody id="tenant-table"></tbody></table></div><p class="reminder-status" id="reminder-status"></p>
+        <div class="table-wrap"><table><thead><tr><th>Unit</th><th>Tenant</th><th>Lease term</th><th>Monthly rent</th><th>PECO</th><th>Water</th><th>Trash</th><th>Sewer</th><th>WiFi</th><th>Expenses</th><th>Total due</th><th>Rent status</th><th></th></tr></thead><tbody id="tenant-table"></tbody></table></div><p class="reminder-status" id="reminder-status"></p>
       </section>
 
       <section class="view" id="expenses">
