@@ -12,8 +12,9 @@ let session;
 let isAdmin = false;
 let currentTenantId = null;
 let authMode = "signin";
-let state = { units: [], maintenance: [], utilities: [], expenses: [], rentHistory: [], utilityHistory: [], tenants: [], mortgageSchedule: [] };
+let state = { units: [], maintenance: [], utilities: [], expenses: [], rentHistory: [], utilityHistory: [], tenants: [], mortgageSchedule: [], tenantRequests: [], appSettings: [] };
 const TENANT_LOGIN_DOMAIN = "1179bush.local";
+const requestLabels = { maintenance:"Maintenance", lease_cancellation:"Lease cancellation", parking:"Parking" };
 
 async function getClient() {
   const response = await fetch("/api/config");
@@ -54,6 +55,8 @@ function selectedUtilityMonth() { return `${document.querySelector("#utility-mon
 function selectedOwnerMonth() { return document.querySelector("#owner-month").value || monthKey; }
 function loginEmail(login) { return login.includes("@") ? login : `${login}@${TENANT_LOGIN_DOMAIN}`; }
 function loginUsername(email) { return email?.endsWith(`@${TENANT_LOGIN_DOMAIN}`) ? email.slice(0, -TENANT_LOGIN_DOMAIN.length - 1) : email || ""; }
+function appSetting(key) { return state.appSettings.find(item => item.key === key)?.value || ""; }
+function currentTenant() { return state.tenants.find(item => item.id === currentTenantId) || null; }
 function monthEndDue(month) { return new Intl.DateTimeFormat("en-US", { month:"short", day:"numeric", timeZone:"UTC" }).format(new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0))); }
 function parseAmountFromBillText(text) {
   const normalized = text.replace(/\s+/g, " ");
@@ -271,6 +274,22 @@ function renderTenantPortal() {
   if (tenant.lease_url) leaseLink.href = tenant.lease_url;
   document.querySelector("#tenant-lease-list").innerHTML = `<div class="owner-line"><span>Unit</span><strong>${tenant.unit_name}</strong></div><div class="owner-line"><span>Lease start</span><strong>${shortMonthLabel(tenant.lease_start)}</strong></div><div class="owner-line"><span>Lease end</span><strong>${shortMonthLabel(tenant.lease_end)}</strong></div><div class="owner-line"><span>Email</span><strong>${tenant.email || "-"}</strong></div>`;
   document.querySelector("#tenant-charge-list").innerHTML = `<div class="owner-line total"><span>Base rent</span><strong>${money(tenant.rent)}</strong></div>${utilityLines.map(line => `<div class="owner-line"><span>${line.label}<small>${line.note}</small></span><strong>${money(line.amount)}</strong></div>`).join("")}${expenseLines.map(line => `<div class="owner-line"><span>${line.category}<small>${line.description}</small>${line.bill_url ? `<a class="text-link" href="${line.bill_url}" target="_blank" rel="noreferrer">Receipt</a>` : ""}</span><strong>${money(line.amount)}</strong></div>`).join("")}<div class="owner-line total"><span>Total due</span><strong>${money(tenant.totalDue)}</strong></div>`;
+  renderTenantRequests();
+}
+function requestCard(request, owner = false) {
+  const priced = request.cost !== null && request.cost !== undefined;
+  return `<article class="request-card ${request.status === "Open" ? "priority" : ""}"><span class="status ${request.status === "Resolved" ? "done" : priced ? "paid" : ""}">${request.status}</span><p class="eyebrow">${requestLabels[request.request_type] || request.request_type}</p><h3>${request.title}</h3><p>${request.detail}</p><div class="request-meta"><span>${request.unit_name}</span><span>${request.category || "General"}</span>${priced ? `<strong>${money(request.cost)}</strong>` : ""}</div>${owner ? `<div class="card-footer"><span>${request.requested_date}</span><span><button class="small-button" data-request-cost="${request.id}">Set cost</button><button class="small-button" data-resolve-request="${request.id}">${request.status === "Resolved" ? "Reopen" : "Resolve"}</button></span></div>` : ""}</article>`;
+}
+function renderTenantRequests() {
+  const requests = state.tenantRequests.filter(item => item.tenant_id === currentTenantId);
+  document.querySelector("#tenant-request-list").innerHTML = requests.length ? requests.map(item => requestCard(item)).join("") : "<article class='request-card'><h3>No requests yet.</h3><p>Submitted requests and owner pricing will show here.</p></article>";
+  document.querySelector("#tenant-parking-terms").textContent = appSetting("parking_terms") || "Parking terms are not set yet.";
+}
+function renderOwnerRequests() {
+  const requests = state.tenantRequests;
+  const openCount = requests.filter(item => item.status === "Open").length;
+  document.querySelector("#owner-request-count").textContent = `${openCount} open ${openCount === 1 ? "request" : "requests"}`;
+  document.querySelector("#owner-request-list").innerHTML = requests.length ? requests.map(item => requestCard(item, true)).join("") : "<article class='request-card'><h3>No tenant requests.</h3><p>Maintenance, lease cancellation, and parking requests will show here.</p></article>";
 }
 function activateView(target) {
   document.querySelectorAll(".view").forEach(view => view.classList.toggle("active", view.id === target));
@@ -310,6 +329,7 @@ function renderOwnerDashboard() {
   document.querySelector("#owner-expense-list").innerHTML = `<div class="owner-line"><span>Mortgage<small>${mortgage ? `Effective ${monthLabel(mortgage.effective_month)}` : "No mortgage set yet"}</small>${mortgage?.bill_url ? `<a class="text-link" href="${mortgage.bill_url}" target="_blank" rel="noreferrer">Bill</a>` : ""}</span><strong>${money(mortgageExpense)}</strong></div>${state.utilities.map(item => { const record = utilityForMonth(item, month); return `<div class="owner-line"><span>${item.service}<small>Due ${record.due || monthEndDue(month)}</small>${record.bill_url ? `<a class="text-link" href="${record.bill_url}" target="_blank" rel="noreferrer">Bill</a>` : ""}</span><strong>${money(record.amount)}</strong></div>`; }).join("")}<div class="owner-line"><span>Other expenses<small>Cleaning, supplies, repairs, and owner-only costs</small></span><strong>${money(otherExpenses)}</strong></div>`;
   document.querySelector("#owner-income-list").innerHTML = `<div class="owner-line"><span>Rent charged</span><strong>${money(rentIncome)}</strong></div><div class="owner-line"><span>Utilities charged<small>PECO/Water split by 4, WiFi flat, Trash/Sewer charged per tenant</small></span><strong>${money(utilityIncome)}</strong></div><div class="owner-line"><span>Tenant expense charges<small>Cleaning and other expenses assigned to tenants</small></span><strong>${money(tenantExpenseIncome)}</strong></div><div class="owner-line total"><span>Total rent + utilities + expenses</span><strong>${money(income)}</strong></div>`;
   document.querySelector("#owner-tenant-table").innerHTML = tenants.map(item => `<tr><td><strong>${item.full_name}</strong></td><td>${item.unit_name}</td><td>${money(item.rent)}</td><td>${money(item.utilityCharges)}</td><td>${money(item.extraExpenses)}</td><td><strong>${money(item.totalDue)}</strong></td><td><span class="status ${item.paid ? "paid" : ""}">${item.paid ? "Received" : "Pending"}</span></td></tr>`).join("") || "<tr><td colspan='7'>No active tenants for this month.</td></tr>";
+  renderOwnerRequests();
 }
 function renderOverview() {
   const due = state.units.reduce((sum, item) => sum + Number(item.rent), 0);
@@ -418,13 +438,15 @@ function renderAll() {
   applyAccessMode();
 }
 async function loadData() {
-  const [units, maintenance, utilities, expenses, tenants, mortgageSchedule] = await Promise.all([
+  const [units, maintenance, utilities, expenses, tenants, mortgageSchedule, tenantRequests, appSettings] = await Promise.all([
     supabase.from("units").select("*").order("name"),
     supabase.from("maintenance").select("*").order("created_at", { ascending: false }),
     supabase.from("utilities").select("*").order("service"),
     supabase.from("expenses").select("*").order("date", { ascending: false }),
     supabase.from("tenants").select("*").order("unit_name"),
-    supabase.from("mortgage_schedule").select("*").order("effective_month", { ascending: false })
+    supabase.from("mortgage_schedule").select("*").order("effective_month", { ascending: false }),
+    supabase.from("tenant_requests").select("*").order("created_at", { ascending: false }),
+    supabase.from("app_settings").select("*")
   ]);
   const error = [units, maintenance, utilities, expenses].find(result => result.error)?.error;
   if (error) throw error;
@@ -437,7 +459,7 @@ async function loadData() {
     const { data } = await supabase.storage.from("leases").createSignedUrl(tenant.lease_document, 3600);
     return { ...tenant, lease_url: data?.signedUrl || null };
   }));
-  state = { units: units.data, maintenance: maintenance.data, utilities: utilities.data, expenses: hydratedExpenses, rentHistory: rentHistory.error ? [] : rentHistory.data, utilityHistory: hydratedUtilityHistory, tenants: hydratedTenants, mortgageSchedule: hydratedMortgageSchedule };
+  state = { units: units.data, maintenance: maintenance.data, utilities: utilities.data, expenses: hydratedExpenses, rentHistory: rentHistory.error ? [] : rentHistory.data, utilityHistory: hydratedUtilityHistory, tenants: hydratedTenants, mortgageSchedule: hydratedMortgageSchedule, tenantRequests: tenantRequests.error ? [] : tenantRequests.data, appSettings: appSettings.error ? [] : appSettings.data };
   syncTenantRentsToUnits();
   if (!isAdmin && !currentTenantId) currentTenantId = state.tenants.find(item => item.email?.toLowerCase() === session.user.email?.toLowerCase())?.id || state.tenants.find(item => item.status !== "Ended")?.id || null;
   renderAll();
@@ -472,7 +494,12 @@ function openModal(type) {
     utilityEdit: { title: "Edit utility bill", fields: `<div class="form-grid"><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label><label class="full">Bill PDF or text file<input name="bill_file" type="file" accept="application/pdf,text/plain,.txt,.csv,image/*"></label><p class="form-message full" data-parse-status>Upload a bill to try filling the amount from the document. You can edit the amount before saving.</p></div>` },
     utilityHistory: { title: "Correct utility history", fields: `<div class="form-grid"><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label><label class="full">Bill PDF or text file<input name="bill_file" type="file" accept="application/pdf,text/plain,.txt,.csv,image/*"></label><p class="form-message full" data-parse-status>Upload a bill to try filling the amount from the document. You can edit the amount before saving.</p></div>` },
     mortgage: { title: `Set mortgage from ${monthLabel(selectedOwnerMonth())} forward`, fields: `<div class="form-grid"><label>Monthly mortgage<input name="amount" type="number" min="0" step="0.01" value="${mortgageForMonth(selectedOwnerMonth())}" required></label><label class="full">Mortgage bill PDF or text file<input name="bill_file" type="file" accept="application/pdf,text/plain,.txt,.csv,image/*"></label><p class="form-message full" data-parse-status>This amount carries forward until you set a newer month. Upload can prefill the amount, and manual edits win.</p></div>` },
+    parkingTerms: { title: "Parking terms", fields: `<div class="form-grid"><label class="full">Terms and conditions<textarea name="value" required>${appSetting("parking_terms")}</textarea></label></div>` },
+    requestCost: { title: "Set request cost", fields: `<div class="form-grid"><label>Category<select name="category"><option>Repairs</option><option>Cleaning</option><option>Supplies</option><option>Maintenance</option><option>Parking</option><option>Other</option></select></label><label>Cost to tenant<input name="amount" type="number" min="0" step="0.01" required></label><label class="full">Description<input name="description" required></label></div>` },
     tenantCredentials: { title: "Tenant login", fields: `<div class="form-grid"><label>Username<input name="username" required placeholder="tenantuser123"></label><label>New password<input name="password" type="password" minlength="8" placeholder="Leave blank to keep current password"></label><p class="form-message full">Username can be a simple handle or a full email. Password updates immediately for tenant login.</p></div>` },
+    tenantMaintenanceRequest: { title: "Request maintenance", fields: `<div class="form-grid"><label>Type<select name="category"><option>Repairs</option><option>Cleaning</option><option>Supplies</option></select></label><label>Title<input name="title" required placeholder="e.g. Bathroom sink leak"></label><label class="full">Details<textarea name="detail" required placeholder="Describe what needs to be handled"></textarea></label></div>` },
+    leaseCancellationRequest: { title: "Request lease cancellation", fields: `<div class="form-grid"><p class="form-message full">Lease cancellation requires a 60 day notice. The owner will review and respond inside the platform.</p><label>Requested move-out date<input name="requested_date" type="date" required></label><label class="full">Message<textarea name="detail" required placeholder="Share the reason or timing details"></textarea></label></div>` },
+    parkingRequest: { title: "Request parking", fields: `<div class="form-grid"><p class="form-message full">${appSetting("parking_terms") || "Parking terms are not set yet."}</p><label>Requested start date<input name="requested_date" type="date" required></label><label>Spots<select name="category"><option>1 spot</option><option>2 spots</option></select></label><label class="full">Message<textarea name="detail" required placeholder="Vehicle details or parking needs"></textarea></label></div>` },
     tenant: { title: "Tenant and lease", fields: `<div class="form-grid"><label>Unit<select name="unit_id" required>${state.units.map(item => `<option value="${item.id}">${item.name}</option>`).join("")}</select></label><label>Tenant name<input name="full_name" required></label><label>Email<input name="email" type="email"></label><label>Phone<input name="phone" type="tel"></label><label>Lease start<input name="lease_start" type="date" required></label><label>Lease end<input name="lease_end" type="date" required></label><label>Rent for ${monthLabel(selectedTenantMonth())}<input name="monthly_rent" type="number" min="0" step="0.01" required></label><label>Status<select name="status"><option>Active</option><option>Upcoming</option><option>Ended</option></select></label><label class="full">Lease PDF<input name="lease_file" type="file" accept="application/pdf"></label></div>` },
     maintenance: { title: "New maintenance request", fields: `<div class="form-grid"><label>Title<input name="title" required placeholder="e.g. Replace hallway bulb"></label><label>Unit<select name="unit"><option>Unit 1</option><option>Unit 2</option><option>Both units</option></select></label><label>Priority<select name="priority"><option>Routine</option><option>Attention</option></select></label><label class="full">Details<textarea name="detail" required placeholder="Describe the work needed"></textarea></label></div>` },
     utility: { title: "Add utility bill", fields: `<div class="form-grid"><label>Service<select name="service"><option>PECO</option><option>WiFi</option><option>Trash</option><option>Sewer</option><option>Water</option></select></label><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label><label class="full">Bill PDF or text file<input name="bill_file" type="file" accept="application/pdf,text/plain,.txt,.csv,image/*"></label><p class="form-message full" data-parse-status>Upload a bill to try filling the amount from the document. You can edit the amount before saving.</p></div>` },
@@ -530,6 +557,7 @@ document.addEventListener("click", async event => {
   if (event.target.closest("#auth-mode-button")) setAuthMode(authMode === "signin" ? "signup" : "signin");
   if (event.target.closest("#sign-out-button")) await supabase.auth.signOut();
   const generateBill = event.target.closest("[data-generate-bill]"); if (generateBill) generateTenantBill(generateBill.dataset.generateBill);
+  const tenantRequestButton = event.target.closest("[data-open-modal]"); if (!isAdmin && tenantRequestButton) openModal(tenantRequestButton.dataset.openModal);
   if (!isAdmin) return;
   const modalButton = event.target.closest("[data-open-modal]"); if (modalButton) openModal(modalButton.dataset.openModal);
   const editUtility = event.target.closest("[data-edit-utility]"); if (editUtility) { const item = state.utilities.find(entry => entry.id === editUtility.dataset.editUtility); const record = state.utilityHistory.find(entry => entry.month === selectedUtilityMonth() && entry.utility_id === item.id); openModal("utilityEdit"); document.querySelector("[name=amount]").value = record ? record.amount : item.amount; document.querySelector("#entry-form").dataset.id = item.id; }
@@ -537,6 +565,8 @@ document.addEventListener("click", async event => {
   const editUtilityHistory = event.target.closest("[data-edit-utility-history]"); if (editUtilityHistory) { const item = state.utilityHistory.find(entry => entry.id === editUtilityHistory.dataset.editUtilityHistory); openModal("utilityHistory"); document.querySelector("[name=amount]").value = item.amount; document.querySelector("#entry-form").dataset.id = item.id; }
   const editTenant = event.target.closest("[data-edit-tenant]"); if (editTenant) { const item = state.tenants.find(entry => entry.id === editTenant.dataset.editTenant); openModal("tenant"); Object.entries(item).forEach(([key, value]) => { const input = document.querySelector(`[name=${key}]`); if (input) input.value = value || ""; }); const monthRent = state.rentHistory.find(entry => entry.month === selectedTenantMonth() && entry.unit_id === item.unit_id); if (monthRent) document.querySelector("[name=monthly_rent]").value = monthRent.rent; document.querySelector("#entry-form").dataset.id = item.id; document.querySelector("#entry-form").dataset.leaseDocument = item.lease_document || ""; }
   const credentialsButton = event.target.closest("[data-tenant-credentials]"); if (credentialsButton) { const item = state.tenants.find(entry => entry.id === credentialsButton.dataset.tenantCredentials); openModal("tenantCredentials"); document.querySelector("[name=username]").value = loginUsername(item.email) || item.full_name.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 24); document.querySelector("#entry-form").dataset.id = item.id; }
+  const requestCost = event.target.closest("[data-request-cost]"); if (requestCost) { const item = state.tenantRequests.find(entry => entry.id === requestCost.dataset.requestCost); openModal("requestCost"); document.querySelector("[name=category]").value = item.category || (item.request_type === "parking" ? "Parking" : "Repairs"); document.querySelector("[name=amount]").value = item.cost || ""; document.querySelector("[name=description]").value = `${requestLabels[item.request_type]}: ${item.title}`; document.querySelector("#entry-form").dataset.id = item.id; }
+  const resolveRequest = event.target.closest("[data-resolve-request]"); if (resolveRequest) { const item = state.tenantRequests.find(entry => entry.id === resolveRequest.dataset.resolveRequest); const { error } = await supabase.from("tenant_requests").update({ status:item.status === "Resolved" ? "Open" : "Resolved" }).eq("id", item.id); if (error) alert(error.message); else await loadData(); }
   const emailReminder = event.target.closest("[data-email-reminder]"); if (emailReminder) { const tenant = state.tenants.find(item => item.id === emailReminder.dataset.emailReminder); const status = document.querySelector("#reminder-status"); status.textContent = "Sending email reminder..."; try { const response = await fetch("/api/send-reminder", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ tenantId:tenant.id, accessToken:session.access_token }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to send reminder."); status.textContent = `Email reminder sent to ${tenant.email}.`; } catch (error) { status.textContent = error.message; } }
   const rentButton = event.target.closest("[data-rent-id]"); if (rentButton) { const item = state.units.find(entry => entry.id === rentButton.dataset.rentId); const month = selectedTenantMonth(); const existing = state.rentHistory.find(entry => entry.month === month && entry.unit_id === item.id); const paid = !(existing ? existing.paid : month === monthKey && item.paid); const received = paid ? new Intl.DateTimeFormat("en-US", { month:"short", day:"numeric", year:"numeric" }).format(new Date()) : ""; const { error } = await supabase.from("rent_history").upsert({ month, unit_id:item.id, unit_name:item.name, rent:existing ? existing.rent : item.rent, paid, received }, { onConflict:"month,unit_id" }); if (error) alert(error.message); else { if (month === monthKey) await supabase.from("units").update({ paid, received }).eq("id", item.id); await loadData(); } }
   const maintenanceButton = event.target.closest("[data-maintenance-id]"); if (maintenanceButton) { const item = state.maintenance.find(entry => entry.id === maintenanceButton.dataset.maintenanceId); const { error } = await supabase.from("maintenance").update({ done: !item.done }).eq("id", item.id); if (error) alert(error.message); else await loadData(); }
@@ -584,6 +614,41 @@ document.querySelector("#entry-form").addEventListener("submit", async event => 
     const response = await fetch("/api/update-tenant-login", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:`Bearer ${session.access_token}` }, body:JSON.stringify({ tenantId:form.dataset.id, email:loginEmail(username), password:password || undefined }) });
     const result = await response.json();
     if (!response.ok) { alert(result.error || "Unable to update tenant login."); return; }
+    modal.close(); await loadData(); return;
+  }
+  if (["tenantMaintenanceRequest", "leaseCancellationRequest", "parkingRequest"].includes(type)) {
+    const tenant = currentTenant();
+    if (!tenant) { alert("No tenant record is linked to this login."); return; }
+    const requestType = type === "tenantMaintenanceRequest" ? "maintenance" : type === "leaseCancellationRequest" ? "lease_cancellation" : "parking";
+    const title = type === "tenantMaintenanceRequest" ? data.get("title") : type === "leaseCancellationRequest" ? "Lease cancellation request" : "Parking request";
+    const category = type === "tenantMaintenanceRequest" ? data.get("category") : type === "parkingRequest" ? data.get("category") : "Notice";
+    const detail = type === "leaseCancellationRequest" ? `60 day notice acknowledged. Requested move-out: ${data.get("requested_date")}. ${data.get("detail")}` : data.get("detail");
+    const record = { tenant_id:tenant.id, unit_name:tenant.unit_name, request_type:requestType, category, title, detail, requested_date:data.get("requested_date") || new Date().toISOString().slice(0, 10) };
+    const { error } = await supabase.from("tenant_requests").insert(record);
+    if (error) { alert(error.message); return; }
+    modal.close(); await loadData(); return;
+  }
+  if (type === "parkingTerms") {
+    const { error } = await supabase.from("app_settings").upsert({ key:"parking_terms", value:data.get("value"), updated_at:new Date().toISOString() });
+    if (error) { alert(error.message); return; }
+    modal.close(); await loadData(); return;
+  }
+  if (type === "requestCost") {
+    const request = state.tenantRequests.find(item => item.id === form.dataset.id);
+    if (!request) { alert("Request not found."); return; }
+    const amount = Number(data.get("amount"));
+    const expense = { date:new Date().toISOString().slice(0, 10), category:data.get("category"), description:data.get("description"), amount, allocation:"selected_tenants", tenant_ids:[request.tenant_id] };
+    let expenseId = request.expense_id;
+    if (expenseId) {
+      const { error } = await supabase.from("expenses").update(expense).eq("id", expenseId);
+      if (error) { alert(error.message); return; }
+    } else {
+      const { data:expenseRecord, error } = await supabase.from("expenses").insert(expense).select().single();
+      if (error) { alert(error.message); return; }
+      expenseId = expenseRecord.id;
+    }
+    const { error } = await supabase.from("tenant_requests").update({ cost:amount, category:data.get("category"), status:"Priced", expense_id:expenseId }).eq("id", request.id);
+    if (error) { alert(error.message); return; }
     modal.close(); await loadData(); return;
   }
   if (type === "utilityEdit") {

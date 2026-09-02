@@ -39,7 +39,15 @@ dialog { border:0; padding:0; background:transparent; width:min(500px,calc(100vw
 body:not(.tenant-mode) .tenant-nav { display:none; }
 body.tenant-mode .nav-link:not(.tenant-nav),body.tenant-mode #export-button { display:none !important; }
 body.tenant-mode .sidebar-note { display:none; }
+.button-row { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
 .tenant-portal-grid { display:grid; grid-template-columns:1.3fr repeat(3,1fr); gap:13px; margin:12px 0 34px; }
+.request-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:13px; margin-top:14px; }
+.request-card { background:var(--white); border:1px solid var(--line); padding:18px; min-height:175px; display:flex; flex-direction:column; gap:10px; }
+.request-card.priority { border-top:4px solid var(--coral); }
+.request-card h3 { font-size:18px; }
+.request-card p:not(.eyebrow) { color:var(--muted); font-size:13px; line-height:1.45; }
+.request-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:auto; color:var(--muted); font-size:11px; }
+.request-meta span,.request-meta strong { border:1px solid var(--line); padding:5px 7px; background:#f7f5ef; }
 
 .owner-summary-grid { display:grid; grid-template-columns:1.45fr 1fr 1fr; gap:13px; margin:12px 0 28px; }
 .owner-panel { min-height:150px; padding:20px; background:var(--white); border:1px solid var(--line); display:flex; flex-direction:column; justify-content:space-between; }
@@ -58,5 +66,5 @@ body.tenant-mode .sidebar-note { display:none; }
 .owner-line strong { font:600 18px Fraunces,serif; white-space:nowrap; }
 .owner-line.total { background:#edf1ec; }
 
-@media (max-width:900px) { .owner-summary-grid,.tenant-portal-grid { grid-template-columns:1fr 1fr; } .owner-net { grid-column:1/-1; } .owner-ledger-grid { grid-template-columns:1fr; } }
-@media (max-width:600px) { .owner-summary-grid,.tenant-portal-grid { grid-template-columns:1fr; } .owner-net { grid-column:auto; } }
+@media (max-width:900px) { .owner-summary-grid,.tenant-portal-grid,.request-grid { grid-template-columns:1fr 1fr; } .owner-net { grid-column:1/-1; } .owner-ledger-grid { grid-template-columns:1fr; } }
+@media (max-width:600px) { .owner-summary-grid,.tenant-portal-grid,.request-grid { grid-template-columns:1fr; } .owner-net { grid-column:auto; } }
