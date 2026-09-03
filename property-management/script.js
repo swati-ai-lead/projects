@@ -12,7 +12,7 @@ let session;
 let isAdmin = false;
 let currentTenantId = null;
 let authMode = "signin";
-let state = { units: [], maintenance: [], utilities: [], expenses: [], rentHistory: [], utilityHistory: [], tenants: [], mortgageSchedule: [], tenantRequests: [], appSettings: [], parkingAssignments: [] };
+let state = { units: [], maintenance: [], utilities: [], expenses: [], rentHistory: [], utilityHistory: [], tenants: [], mortgageSchedule: [], tenantRequests: [], appSettings: [], parkingAssignments: [], tenantDocuments: [] };
 const TENANT_LOGIN_DOMAIN = "1179bush.local";
 const requestLabels = { maintenance:"Maintenance", lease_cancellation:"Lease cancellation", parking:"Parking" };
 const adminNavLinks = [
@@ -24,7 +24,8 @@ const adminNavLinks = [
   ["06", "Expenses", "expenses"],
   ["07", "History", "history"],
   ["08", "Units", "units"],
-  ["09", "Parking", "parking"]
+  ["09", "Parking", "parking"],
+  ["10", "Documents", "documents"]
 ];
 
 async function getClient() {
@@ -111,6 +112,28 @@ async function signedBillUrl(path) {
   const { data } = await supabase.storage.from("bills").createSignedUrl(path, 3600);
   return data?.signedUrl || null;
 }
+async function signedLeaseUrl(path) {
+  if (!path) return null;
+  if (path.startsWith("/")) return path;
+  const { data } = await supabase.storage.from("leases").createSignedUrl(path, 3600);
+  return data?.signedUrl || null;
+}
+async function uploadLeaseFile(file, folder) {
+  if (!(file instanceof File) || !file.size) return null;
+  if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) throw new Error("Upload a PDF lease document.");
+  const filename = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+  const path = `documents/${folder}/${Date.now()}-${filename}`;
+  const { error } = await supabase.storage.from("leases").upload(path, file, { contentType:"application/pdf", upsert:false });
+  if (error) throw error;
+  return path;
+}
+function parseLeaseDetails(text) {
+  const normalized = text.replace(/\s+/g, " ");
+  const isoDates = [...normalized.matchAll(/\b(20\d{2})[-/](\d{1,2})[-/](\d{1,2})\b/g)].map(match => `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}`);
+  const namedDates = [...normalized.matchAll(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(20\d{2})\b/gi)].map(match => new Date(`${match[1]} ${match[2]}, ${match[3]}`).toISOString().slice(0, 10));
+  return { dates:[...isoDates, ...namedDates] };
+}
+function suggestedTenantForLease(text) { return state.tenants.find(tenant => text.toLowerCase().includes(tenant.full_name.toLowerCase()))?.id || ""; }
 function tenantExpenseCharges(month) {
   const activeTenants = state.tenants.filter(item => item.status !== "Ended");
   const activeTenantIds = activeTenants.map(item => item.id);
@@ -293,7 +316,7 @@ function renderTenantPortal() {
   document.querySelector("#tenant-lease-list").innerHTML = `<div class="owner-line"><span>Unit</span><strong>${tenant.unit_name}</strong></div><div class="owner-line"><span>Lease start</span><strong>${shortMonthLabel(tenant.lease_start)}</strong></div><div class="owner-line"><span>Lease end</span><strong>${shortMonthLabel(tenant.lease_end)}</strong></div><div class="owner-line"><span>Email</span><strong>${tenant.email || "-"}</strong></div>`;
   document.querySelector("#tenant-charge-list").innerHTML = `<div class="owner-line total"><span>Base rent</span><strong>${money(tenant.rent)}</strong></div>${utilityLines.map(line => `<div class="owner-line"><span>${line.label}<small>${line.note}</small></span><strong>${money(line.amount)}</strong></div>`).join("")}${parkingLines.map(line => `<div class="owner-line"><span>${line.label}<small>${line.note}</small></span><strong>${money(line.amount)}</strong></div>`).join("")}${expenseLines.map(line => `<div class="owner-line"><span>${line.category}<small>${line.description}</small>${line.bill_url ? `<a class="text-link" href="${line.bill_url}" target="_blank" rel="noreferrer">Receipt</a>` : ""}</span><strong>${money(line.amount)}</strong></div>`).join("")}<div class="owner-line total"><span>Total due</span><strong>${money(tenant.totalDue)}</strong></div>`;
   document.querySelector("#tenant-parking-list").innerHTML = tenant.parking ? `<div class="owner-line"><span>Assigned spot<small>${tenant.parking.terms || appSetting("parking_terms")}</small></span><strong>${money(tenant.parkingAmount)}/mo</strong></div><div class="owner-line"><span>Where to park</span><strong>${tenant.parking.location}</strong></div>` : `<div class="owner-line"><span>No active parking spot<small>${appSetting("parking_terms") || "Parking terms are not set yet."}</small></span><strong>${money(parkingCharge())}/mo</strong></div>`;
-  renderTenantRequests();
+  renderTenantRequests(); renderTenantDocuments();
 }
 function requestCard(request, owner = false) {
   const priced = request.cost !== null && request.cost !== undefined;
@@ -302,6 +325,21 @@ function requestCard(request, owner = false) {
 function renderTenantRequests() {
   const requests = state.tenantRequests.filter(item => item.tenant_id === currentTenantId);
   document.querySelector("#tenant-request-list").innerHTML = requests.length ? requests.map(item => requestCard(item)).join("") : "<article class='request-card'><h3>No requests yet.</h3><p>Submitted requests and owner pricing will show here.</p></article>";
+}
+function documentCard(document, owner = false) {
+  const tenant = state.tenants.find(item => item.id === document.tenant_id);
+  const dates = document.lease_start && document.lease_end ? `${shortMonthLabel(document.lease_start)} - ${shortMonthLabel(document.lease_end)}` : "Dates not set";
+  const signedLink = document.signed_url ? `<a class="text-link" href="${document.signed_url}" target="_blank" rel="noreferrer">Open signed lease</a>` : "";
+  const originalLink = document.original_url ? `<a class="text-link" href="${document.original_url}" target="_blank" rel="noreferrer">Open lease</a>` : "";
+  const actions = owner ? `${originalLink}${signedLink}${document.status === "Draft" ? `<button class="small-button" data-send-document="${document.id}">Send to sign</button>` : ""}` : `${document.status === "Awaiting signature" ? `<button class="small-button" data-sign-document="${document.id}">Upload signed lease</button>` : ""}${signedLink || originalLink}`;
+  return `<article class="request-card ${document.status === "Awaiting signature" ? "priority" : ""}"><span class="status ${document.status === "Signed" ? "paid" : ""}">${document.status}</span><p class="eyebrow">LEASE</p><h3>${document.title}</h3><p>${owner ? `${tenant?.full_name || "Tenant"} | ${tenant?.unit_name || ""}` : dates}</p><div class="request-meta"><span>${dates}</span>${document.signed_at ? "<span>Signed</span>" : ""}</div><div class="card-footer"><span>${document.sent_at ? "Sent for signature" : "Draft"}</span><span class="tenant-actions">${actions}</span></div></article>`;
+}
+function renderDocuments() {
+  document.querySelector("#document-list").innerHTML = state.tenantDocuments.length ? state.tenantDocuments.map(item => documentCard(item, true)).join("") : "<article class='request-card'><h3>No lease documents yet.</h3><p>Upload a lease to parse its details and send it for tenant signature.</p></article>";
+}
+function renderTenantDocuments() {
+  const documents = state.tenantDocuments.filter(item => item.tenant_id === currentTenantId);
+  document.querySelector("#tenant-document-list").innerHTML = documents.length ? documents.map(item => documentCard(item)).join("") : "<article class='request-card'><h3>No lease documents.</h3><p>Leases sent for your signature will appear here.</p></article>";
 }
 function renderOwnerRequests() {
   const requests = state.tenantRequests;
@@ -478,14 +516,14 @@ function renderAll() {
   document.querySelector("#utility-month").value ||= monthKey.slice(0, 7);
   if (isAdmin) renderOwnerDashboard();
   else renderTenantPortal();
-  if (isAdmin) { renderParking(); renderOverview(); renderMaintenance(); renderUtilities(); renderUnits(); renderExpenses(); renderHistory(); renderTenants(); }
+  if (isAdmin) { renderDocuments(); renderParking(); renderOverview(); renderMaintenance(); renderUtilities(); renderUnits(); renderExpenses(); renderHistory(); renderTenants(); }
   const tenantModalTypes = ["tenantMaintenanceRequest", "leaseCancellationRequest", "parkingRequest"];
   document.querySelectorAll("[data-open-modal]").forEach(button => button.hidden = !isAdmin && !tenantModalTypes.includes(button.dataset.openModal));
   document.querySelectorAll(".read-only-note").forEach(note => note.remove());
   applyAccessMode();
 }
 async function loadData() {
-  const [units, maintenance, utilities, expenses, tenants, mortgageSchedule, tenantRequests, appSettings, parkingAssignments] = await Promise.all([
+  const [units, maintenance, utilities, expenses, tenants, mortgageSchedule, tenantRequests, appSettings, parkingAssignments, tenantDocuments] = await Promise.all([
     supabase.from("units").select("*").order("name"),
     supabase.from("maintenance").select("*").order("created_at", { ascending: false }),
     supabase.from("utilities").select("*").order("service"),
@@ -494,7 +532,8 @@ async function loadData() {
     supabase.from("mortgage_schedule").select("*").order("effective_month", { ascending: false }),
     supabase.from("tenant_requests").select("*").order("created_at", { ascending: false }),
     supabase.from("app_settings").select("*"),
-    supabase.from("parking_assignments").select("*").order("created_at", { ascending: false })
+    supabase.from("parking_assignments").select("*").order("created_at", { ascending: false }),
+    supabase.from("tenant_documents").select("*").order("created_at", { ascending: false })
   ]);
   const error = [units, maintenance, utilities, expenses].find(result => result.error)?.error;
   if (error) throw error;
@@ -502,12 +541,13 @@ async function loadData() {
   const hydratedMortgageSchedule = await Promise.all((mortgageSchedule.error ? [] : mortgageSchedule.data).map(async item => ({ ...item, bill_url:await signedBillUrl(item.bill_document) })));
   const hydratedUtilityHistory = await Promise.all((utilityHistory.error ? [] : utilityHistory.data).map(async item => ({ ...item, bill_url:await signedBillUrl(item.bill_document) })));
   const hydratedExpenses = await Promise.all((expenses.error ? [] : expenses.data).map(async item => ({ ...item, allocation:item.allocation || "owner", tenant_ids:item.tenant_ids || [], bill_url:await signedBillUrl(item.bill_document) })));
+  const hydratedDocuments = await Promise.all((tenantDocuments.error ? [] : tenantDocuments.data).map(async item => ({ ...item, original_url:await signedLeaseUrl(item.original_document), signed_url:await signedLeaseUrl(item.signed_document) })));
   const hydratedTenants = await Promise.all((tenants.error ? [] : tenants.data).map(async tenant => {
     if (!tenant.lease_document || tenant.lease_document.startsWith("/")) return { ...tenant, lease_url: tenant.lease_document };
     const { data } = await supabase.storage.from("leases").createSignedUrl(tenant.lease_document, 3600);
     return { ...tenant, lease_url: data?.signedUrl || null };
   }));
-  state = { units: units.data, maintenance: maintenance.data, utilities: utilities.data, expenses: hydratedExpenses, rentHistory: rentHistory.error ? [] : rentHistory.data, utilityHistory: hydratedUtilityHistory, tenants: hydratedTenants, mortgageSchedule: hydratedMortgageSchedule, tenantRequests: tenantRequests.error ? [] : tenantRequests.data, appSettings: appSettings.error ? [] : appSettings.data, parkingAssignments: parkingAssignments.error ? [] : parkingAssignments.data };
+  state = { units: units.data, maintenance: maintenance.data, utilities: utilities.data, expenses: hydratedExpenses, rentHistory: rentHistory.error ? [] : rentHistory.data, utilityHistory: hydratedUtilityHistory, tenants: hydratedTenants, mortgageSchedule: hydratedMortgageSchedule, tenantRequests: tenantRequests.error ? [] : tenantRequests.data, appSettings: appSettings.error ? [] : appSettings.data, parkingAssignments: parkingAssignments.error ? [] : parkingAssignments.data, tenantDocuments: hydratedDocuments };
   syncTenantRentsToUnits();
   if (!isAdmin && !currentTenantId) currentTenantId = state.tenants.find(item => item.email?.toLowerCase() === session.user.email?.toLowerCase())?.id || state.tenants.find(item => item.status !== "Ended")?.id || null;
   renderAll();
@@ -544,6 +584,8 @@ function openModal(type) {
     mortgage: { title: `Set mortgage from ${monthLabel(selectedOwnerMonth())} forward`, fields: `<div class="form-grid"><label>Monthly mortgage<input name="amount" type="number" min="0" step="0.01" value="${mortgageForMonth(selectedOwnerMonth())}" required></label><label class="full">Mortgage bill PDF or text file<input name="bill_file" type="file" accept="application/pdf,text/plain,.txt,.csv,image/*"></label><p class="form-message full" data-parse-status>This amount carries forward until you set a newer month. Upload can prefill the amount, and manual edits win.</p></div>` },
     parkingTerms: { title: "Parking terms", fields: `<div class="form-grid"><label>Default monthly charge<input name="amount" type="number" min="0" step="0.01" value="${parkingCharge()}" required></label><label class="full">Where to park<input name="location" value="${appSetting("parking_location") || "Driveway spot behind 1179 Bush St."}" required></label><label class="full">Terms and conditions<textarea name="value" required>${appSetting("parking_terms")}</textarea></label></div>` },
     parkingAssignment: { title: "Assign driveway spot", fields: `<div class="form-grid"><label>Tenant<select name="tenant_id" required>${state.tenants.filter(item => item.status !== "Ended").map(item => `<option value="${item.id}">${item.full_name} (${item.unit_name})</option>`).join("")}</select></label><label>Monthly charge<input name="amount" type="number" min="0" step="0.01" value="${parkingCharge()}" required></label><label>Start month<input name="start_month" type="month" value="${monthKey.slice(0, 7)}" required></label><label class="full">Location<input name="location" value="Driveway spot" required></label><label class="full">Terms<textarea name="terms" required>${appSetting("parking_terms")}</textarea></label></div>` },
+    leaseDocument: { title: "Upload lease", fields: `<div class="form-grid"><label>Tenant<select name="tenant_id" required>${state.tenants.filter(item => item.status !== "Ended").map(item => `<option value="${item.id}">${item.full_name} (${item.unit_name})</option>`).join("")}</select></label><label>Document title<input name="title" value="Lease agreement" required></label><label>Lease start<input name="lease_start" type="date"></label><label>Lease end<input name="lease_end" type="date"></label><label class="full">Lease PDF<input name="document_file" type="file" accept="application/pdf" required></label><p class="form-message full" data-document-parse-status>Upload a text-based PDF to suggest the tenant and lease dates. Review all values before saving.</p></div>` },
+    signedLease: { title: "Upload signed lease", fields: `<div class="form-grid"><p class="form-message full">Upload the completed lease PDF with your signature. The owner will be able to view the signed copy immediately.</p><label class="full">Signed lease PDF<input name="signed_file" type="file" accept="application/pdf" required></label></div>` },
     requestCost: { title: "Set request cost", fields: `<div class="form-grid"><label>Category<select name="category"><option>Repairs</option><option>Cleaning</option><option>Supplies</option><option>Maintenance</option><option>Parking</option><option>Other</option></select></label><label>Cost to tenant<input name="amount" type="number" min="0" step="0.01" required></label><label class="full">Description<input name="description" required></label></div>` },
     tenantCredentials: { title: "Tenant login", fields: `<div class="form-grid"><label>Username<input name="username" required placeholder="tenantuser123"></label><label>New password<input name="password" type="password" minlength="8" placeholder="Leave blank to keep current password"></label><p class="form-message full">Username can be a simple handle or a full email. Password updates immediately for tenant login.</p></div>` },
     tenantMaintenanceRequest: { title: "Request maintenance", fields: `<div class="form-grid"><label>Type<select name="category"><option>Repairs</option><option>Cleaning</option><option>Supplies</option></select></label><label>Title<input name="title" required placeholder="e.g. Bathroom sink leak"></label><label class="full">Details<textarea name="detail" required placeholder="Describe what needs to be handled"></textarea></label></div>` },
@@ -567,6 +609,22 @@ document.querySelector("#entry-form").addEventListener("change", async event => 
   if (allocation) {
     const picker = document.querySelector("[data-tenant-picker]");
     if (picker) picker.hidden = allocation.value !== "selected_tenants";
+  }
+  const documentInput = event.target.closest("[name=document_file]");
+  if (documentInput?.files?.length) {
+    const form = document.querySelector("#entry-form");
+    const status = form.querySelector("[data-document-parse-status]");
+    status.textContent = "Reading lease details...";
+    try {
+      const text = await readBillText(documentInput.files[0]);
+      const details = parseLeaseDetails(text);
+      const tenantId = suggestedTenantForLease(text);
+      if (tenantId) form.querySelector("[name=tenant_id]").value = tenantId;
+      if (details.dates[0]) form.querySelector("[name=lease_start]").value ||= details.dates[0];
+      if (details.dates[1]) form.querySelector("[name=lease_end]").value ||= details.dates[1];
+      status.textContent = `Found ${details.dates.length} date${details.dates.length === 1 ? "" : "s"}${tenantId ? " and a matching tenant" : ""}. Review the fields before saving.`;
+    } catch (error) { status.textContent = `Could not parse this PDF: ${error.message}. Fill the tenant and dates manually.`; }
+    return;
   }
   const input = event.target.closest("[name=bill_file]");
   if (!input?.files?.length) return;
@@ -606,6 +664,7 @@ document.addEventListener("click", async event => {
   if (event.target.closest("#auth-mode-button")) setAuthMode(authMode === "signin" ? "signup" : "signin");
   if (event.target.closest("#sign-out-button")) await supabase.auth.signOut();
   const generateBill = event.target.closest("[data-generate-bill]"); if (generateBill) generateTenantBill(generateBill.dataset.generateBill);
+  const signDocument = event.target.closest("[data-sign-document]"); if (signDocument && !isAdmin) { openModal("signedLease"); document.querySelector("#entry-form").dataset.id = signDocument.dataset.signDocument; }
   const tenantModalTypes = ["tenantMaintenanceRequest", "leaseCancellationRequest", "parkingRequest"];
   const tenantRequestButton = event.target.closest("[data-open-modal]"); if (!isAdmin && tenantRequestButton && tenantModalTypes.includes(tenantRequestButton.dataset.openModal)) openModal(tenantRequestButton.dataset.openModal);
   if (!isAdmin) return;
@@ -618,6 +677,7 @@ document.addEventListener("click", async event => {
   const requestCost = event.target.closest("[data-request-cost]"); if (requestCost) { const item = state.tenantRequests.find(entry => entry.id === requestCost.dataset.requestCost); openModal("requestCost"); document.querySelector("[name=category]").value = item.category || (item.request_type === "parking" ? "Parking" : "Repairs"); document.querySelector("[name=amount]").value = item.cost || ""; document.querySelector("[name=description]").value = `${requestLabels[item.request_type]}: ${item.title}`; document.querySelector("#entry-form").dataset.id = item.id; }
   const resolveRequest = event.target.closest("[data-resolve-request]"); if (resolveRequest) { const item = state.tenantRequests.find(entry => entry.id === resolveRequest.dataset.resolveRequest); const { error } = await supabase.from("tenant_requests").update({ status:item.status === "Resolved" ? "Open" : "Resolved" }).eq("id", item.id); if (error) alert(error.message); else await loadData(); }
   const endParking = event.target.closest("[data-end-parking]"); if (endParking) { const item = state.parkingAssignments.find(entry => entry.id === endParking.dataset.endParking); const updates = item.active ? { active:false, end_month:monthKey } : { active:true, end_month:null }; const { error } = await supabase.from("parking_assignments").update(updates).eq("id", item.id); if (error) alert(error.message); else await loadData(); }
+  const sendDocument = event.target.closest("[data-send-document]"); if (sendDocument) { const { error } = await supabase.from("tenant_documents").update({ status:"Awaiting signature", sent_at:new Date().toISOString() }).eq("id", sendDocument.dataset.sendDocument); if (error) alert(error.message); else await loadData(); }
   const emailReminder = event.target.closest("[data-email-reminder]"); if (emailReminder) { const tenant = state.tenants.find(item => item.id === emailReminder.dataset.emailReminder); const status = document.querySelector("#reminder-status"); status.textContent = "Sending email reminder..."; try { const response = await fetch("/api/send-reminder", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ tenantId:tenant.id, accessToken:session.access_token }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to send reminder."); status.textContent = `Email reminder sent to ${tenant.email}.`; } catch (error) { status.textContent = error.message; } }
   const rentButton = event.target.closest("[data-rent-id]"); if (rentButton) { const item = state.units.find(entry => entry.id === rentButton.dataset.rentId); const month = selectedTenantMonth(); const existing = state.rentHistory.find(entry => entry.month === month && entry.unit_id === item.id); const paid = !(existing ? existing.paid : month === monthKey && item.paid); const received = paid ? new Intl.DateTimeFormat("en-US", { month:"short", day:"numeric", year:"numeric" }).format(new Date()) : ""; const { error } = await supabase.from("rent_history").upsert({ month, unit_id:item.id, unit_name:item.name, rent:existing ? existing.rent : item.rent, paid, received }, { onConflict:"month,unit_id" }); if (error) alert(error.message); else { if (month === monthKey) await supabase.from("units").update({ paid, received }).eq("id", item.id); await loadData(); } }
   const maintenanceButton = event.target.closest("[data-maintenance-id]"); if (maintenanceButton) { const item = state.maintenance.find(entry => entry.id === maintenanceButton.dataset.maintenanceId); const { error } = await supabase.from("maintenance").update({ done: !item.done }).eq("id", item.id); if (error) alert(error.message); else await loadData(); }
@@ -635,6 +695,26 @@ document.querySelectorAll("[data-close-modal]").forEach(button => button.addEven
 document.querySelector("#entry-form").addEventListener("submit", async event => {
   const form = event.target; event.preventDefault();
   const data = new FormData(form); const type = form.dataset.type;
+  if (type === "leaseDocument") {
+    const tenantId = data.get("tenant_id");
+    const tenant = state.tenants.find(item => item.id === tenantId);
+    if (!tenant) { alert("Choose a tenant for this lease."); return; }
+    let originalDocument;
+    try { originalDocument = await uploadLeaseFile(data.get("document_file"), tenantId); } catch (error) { alert(error.message); return; }
+    const record = { tenant_id:tenantId, document_type:"lease", title:data.get("title"), original_document:originalDocument, lease_start:data.get("lease_start") || null, lease_end:data.get("lease_end") || null, status:"Draft" };
+    const { error } = await supabase.from("tenant_documents").insert(record);
+    if (error) { alert(error.message); return; }
+    modal.close(); await loadData(); return;
+  }
+  if (type === "signedLease") {
+    const document = state.tenantDocuments.find(item => item.id === form.dataset.id);
+    if (!document || document.tenant_id !== currentTenantId) { alert("Lease document not found."); return; }
+    let signedDocument;
+    try { signedDocument = await uploadLeaseFile(data.get("signed_file"), `${document.tenant_id}/signed`); } catch (error) { alert(error.message); return; }
+    const { error } = await supabase.from("tenant_documents").update({ signed_document:signedDocument, status:"Signed", signed_at:new Date().toISOString() }).eq("id", document.id);
+    if (error) { alert(error.message); return; }
+    modal.close(); await loadData(); return;
+  }
   if (type === "tenant") {
     const unit = state.units.find(item => item.id === data.get("unit_id"));
     const leaseFile = data.get("lease_file"); let leaseDocument = form.dataset.leaseDocument || null;

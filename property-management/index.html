@@ -27,6 +27,7 @@
         <a class="nav-link" href="#history" data-view="history"><span>07</span> History</a>
         <a class="nav-link" href="#units" data-view="units"><span>08</span> Units</a>
         <a class="nav-link" href="#parking" data-view="parking"><span>09</span> Parking</a>
+        <a class="nav-link" href="#documents" data-view="documents"><span>10</span> Documents</a>
         <a class="nav-link tenant-nav" href="#tenant-portal" data-view="tenant-portal"><span>01</span> My portal</a>
       </nav>
       <p class="sidebar-note">A quiet record of the work that keeps a home running.</p>
@@ -69,6 +70,12 @@
         </div>
         <div class="history-section"><div class="section-heading"><div><p class="eyebrow">REQUESTS</p><h3>Need something handled?</h3></div><div class="button-row"><button class="small-button" data-open-modal="tenantMaintenanceRequest">Maintenance</button><button class="small-button" data-open-modal="leaseCancellationRequest">Cancel lease</button><button class="small-button" data-open-modal="parkingRequest">Parking</button></div></div><div class="request-grid" id="tenant-request-list"></div></div>
         <div class="history-section"><div class="section-heading"><div><p class="eyebrow">PARKING</p><h3>Driveway spot</h3></div></div><div class="owner-line-list" id="tenant-parking-list"></div></div>
+        <div class="history-section"><div class="section-heading"><div><p class="eyebrow">DOCUMENTS</p><h3>Lease signatures</h3></div></div><div class="request-grid" id="tenant-document-list"></div></div>
+      </section>
+
+      <section class="view" id="documents">
+        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">DOCUMENTS</p><h2>Lease signatures.</h2><p>Upload a lease, review the extracted tenant and dates, then send it for tenant signature.</p></div><button class="primary-button" data-open-modal="leaseDocument">+ Upload lease</button></div>
+        <div class="request-grid" id="document-list"></div>
       </section>
 
       <section class="view" id="parking">
