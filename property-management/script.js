@@ -302,7 +302,6 @@ function requestCard(request, owner = false) {
 function renderTenantRequests() {
   const requests = state.tenantRequests.filter(item => item.tenant_id === currentTenantId);
   document.querySelector("#tenant-request-list").innerHTML = requests.length ? requests.map(item => requestCard(item)).join("") : "<article class='request-card'><h3>No requests yet.</h3><p>Submitted requests and owner pricing will show here.</p></article>";
-  document.querySelector("#tenant-parking-terms").textContent = appSetting("parking_terms") || "Parking terms are not set yet.";
 }
 function renderOwnerRequests() {
   const requests = state.tenantRequests;
@@ -330,6 +329,17 @@ function activateView(target) {
 function renderNavigation() {
   const links = isAdmin ? adminNavLinks : [["01", "My portal", "tenant-portal"]];
   document.querySelector("nav").innerHTML = links.map(([number, label, view]) => `<a class="nav-link ${view === (isAdmin ? "owner" : "tenant-portal") ? "active" : ""}" href="#${view}" data-view="${view}"><span>${number}</span> ${label}</a>`).join("");
+}
+function resetLoggedOutShell() {
+  isAdmin = false;
+  currentTenantId = null;
+  document.body.classList.remove("authenticated", "tenant-mode");
+  document.querySelector("nav").innerHTML = "";
+  document.querySelector(".brand").href = "#owner";
+  document.querySelector("#account-label").textContent = "";
+  document.querySelector("#export-button").hidden = true;
+  document.querySelector("#auth-screen").hidden = false;
+  document.querySelector("#page-title").textContent = "Property access";
 }
 function applyAccessMode() {
   renderNavigation();
@@ -466,7 +476,9 @@ function syncTenantRentsToUnits() {
 }
 function renderAll() {
   document.querySelector("#utility-month").value ||= monthKey.slice(0, 7);
-  renderOwnerDashboard(); renderTenantPortal(); renderParking(); renderOverview(); renderMaintenance(); renderUtilities(); renderUnits(); renderExpenses(); renderHistory(); renderTenants();
+  if (isAdmin) renderOwnerDashboard();
+  else renderTenantPortal();
+  if (isAdmin) { renderParking(); renderOverview(); renderMaintenance(); renderUtilities(); renderUnits(); renderExpenses(); renderHistory(); renderTenants(); }
   const tenantModalTypes = ["tenantMaintenanceRequest", "leaseCancellationRequest", "parkingRequest"];
   document.querySelectorAll("[data-open-modal]").forEach(button => button.hidden = !isAdmin && !tenantModalTypes.includes(button.dataset.openModal));
   document.querySelectorAll(".read-only-note").forEach(note => note.remove());
@@ -503,7 +515,7 @@ async function loadData() {
 function setAuthMessage(message, error = false) { const element = document.querySelector("#auth-message"); element.textContent = message; element.style.color = error ? "#a63b2d" : ""; }
 async function setSession(nextSession) {
   session = nextSession;
-  if (!session) { document.body.classList.remove("authenticated"); document.querySelector("#auth-screen").hidden = false; return; }
+  if (!session) { resetLoggedOutShell(); return; }
   const { data, error } = await supabase.from("profiles").select("role, tenant_id").eq("id", session.user.id).single();
   if (error) throw error;
   isAdmin = data.role === "admin";
