@@ -162,6 +162,11 @@ function tenantMonthlyLedger(month) {
   const waterShare = utilityAmount("Water") / 4;
   const trash = utilityAmount("Trash");
   const sewer = utilityAmount("Sewer");
+  const lateFeeAmount = Number(appSetting("late_fee_amount") || 50);
+  const lateAfterDay = Number(appSetting("late_after_day") || 5);
+  const monthDate = new Date(`${month}T00:00:00Z`);
+  const lateDate = new Date(Date.UTC(monthDate.getUTCFullYear(), monthDate.getUTCMonth(), lateAfterDay));
+  const isPastLateDate = new Date() > lateDate;
   return state.tenants.filter(item => item.status !== "Ended").map(item => {
     const record = state.rentHistory.find(entry => entry.month === month && entry.unit_id === item.unit_id);
     const unit = state.units.find(entry => entry.id === item.unit_id);
@@ -172,7 +177,9 @@ function tenantMonthlyLedger(month) {
     const extraExpenseLines = expenseCharges.get(item.id)?.lines || [];
     const parking = parkingAssignmentForTenant(item.id, month);
     const parkingAmount = parking ? Number(parking.monthly_amount || parkingCharge()) : 0;
-    return { ...item, rent, paid, utilityCharges, extraExpenses, extraExpenseLines, parking, parkingAmount, totalDue:rent + utilityCharges + extraExpenses + parkingAmount };
+    const isLate = isPastLateDate && !paid;
+    const lateFee = isLate ? lateFeeAmount : 0;
+    return { ...item, rent, paid, utilityCharges, extraExpenses, extraExpenseLines, parking, parkingAmount, totalDue:rent + utilityCharges + extraExpenses + parkingAmount, isLate, lateFee };
   });
 }
 function tenantBillDetails(tenant, month) {
@@ -304,8 +311,9 @@ function renderTenantPortal() {
   const { utilityLines, expenseLines, parkingLines } = tenantBillDetails(tenant, month);
   document.querySelector("#tenant-generate-bill").disabled = false;
   document.querySelector("#tenant-generate-bill").dataset.generateBill = tenant.id;
-  document.querySelector("#tenant-total-due").textContent = money(tenant.totalDue);
-  document.querySelector("#tenant-status-note").textContent = tenant.paid ? "Received" : "Pending";
+  const totalWithLate = tenant.totalDue + (tenant.lateFee || 0);
+  document.querySelector("#tenant-total-due").textContent = money(totalWithLate);
+  document.querySelector("#tenant-status-note").textContent = tenant.paid ? "Received" : (tenant.isLate ? "Late" : "Pending");
   document.querySelector("#tenant-base-rent").textContent = money(tenant.rent);
   document.querySelector("#tenant-utilities-total").textContent = money(tenant.utilityCharges + tenant.parkingAmount);
   document.querySelector("#tenant-expenses-total").textContent = money(tenant.extraExpenses);
@@ -316,6 +324,11 @@ function renderTenantPortal() {
   document.querySelector("#tenant-lease-list").innerHTML = `<div class="owner-line"><span>Unit</span><strong>${tenant.unit_name}</strong></div><div class="owner-line"><span>Lease start</span><strong>${shortMonthLabel(tenant.lease_start)}</strong></div><div class="owner-line"><span>Lease end</span><strong>${shortMonthLabel(tenant.lease_end)}</strong></div><div class="owner-line"><span>Email</span><strong>${tenant.email || "-"}</strong></div>`;
   document.querySelector("#tenant-charge-list").innerHTML = `<div class="owner-line total"><span>Base rent</span><strong>${money(tenant.rent)}</strong></div>${utilityLines.map(line => `<div class="owner-line"><span>${line.label}<small>${line.note}</small></span><strong>${money(line.amount)}</strong></div>`).join("")}${parkingLines.map(line => `<div class="owner-line"><span>${line.label}<small>${line.note}</small></span><strong>${money(line.amount)}</strong></div>`).join("")}${expenseLines.map(line => `<div class="owner-line"><span>${line.category}<small>${line.description}</small>${line.bill_url ? `<a class="text-link" href="${line.bill_url}" target="_blank" rel="noreferrer">Receipt</a>` : ""}</span><strong>${money(line.amount)}</strong></div>`).join("")}<div class="owner-line total"><span>Total due</span><strong>${money(tenant.totalDue)}</strong></div>`;
   document.querySelector("#tenant-parking-list").innerHTML = tenant.parking ? `<div class="owner-line"><span>Assigned spot<small>${tenant.parking.terms || appSetting("parking_terms")}</small></span><strong>${money(tenant.parkingAmount)}/mo</strong></div><div class="owner-line"><span>Where to park</span><strong>${tenant.parking.location}</strong></div>` : `<div class="owner-line"><span>No active parking spot<small>${appSetting("parking_terms") || "Parking terms are not set yet."}</small></span><strong>${money(parkingCharge())}/mo</strong></div>`;
+  const wifiSsid = appSetting("wifi_ssid");
+  const wifiPassword = appSetting("wifi_password");
+  document.querySelector("#tenant-wifi-list").innerHTML = wifiSsid ? `<div class="owner-line"><span>Network (SSID)</span><strong>${wifiSsid}</strong></div><div class="owner-line"><span>Password</span><strong>${wifiPassword || "Not set"}</strong></div>` : `<div class="owner-line"><span>WiFi details not configured</span><strong>Contact property manager</strong></div>`;
+  const doorCode = tenant.front_door_code;
+  document.querySelector("#tenant-door-code-list").innerHTML = doorCode ? `<div class="owner-line"><span>Entry code</span><strong style="font-family:'DM Mono',monospace;letter-spacing:2px;">${doorCode}</strong></div>` : `<div class="owner-line"><span>Front door code not set</span><strong>Contact property manager</strong></div>`;
   renderTenantRequests(); renderTenantDocuments();
 }
 function requestCard(request, owner = false) {
@@ -410,7 +423,7 @@ function renderOwnerDashboard() {
   const mortgage = mortgageEntryForMonth(month);
   document.querySelector("#owner-expense-list").innerHTML = `<div class="owner-line"><span>Mortgage<small>${mortgage ? `Effective ${monthLabel(mortgage.effective_month)}` : "No mortgage set yet"}</small>${mortgage?.bill_url ? `<a class="text-link" href="${mortgage.bill_url}" target="_blank" rel="noreferrer">Bill</a>` : ""}</span><strong>${money(mortgageExpense)}</strong></div>${state.utilities.map(item => { const record = utilityForMonth(item, month); return `<div class="owner-line"><span>${item.service}<small>Due ${record.due || monthEndDue(month)}</small>${record.bill_url ? `<a class="text-link" href="${record.bill_url}" target="_blank" rel="noreferrer">Bill</a>` : ""}</span><strong>${money(record.amount)}</strong></div>`; }).join("")}<div class="owner-line"><span>Other expenses<small>Cleaning, supplies, repairs, and owner-only costs</small></span><strong>${money(otherExpenses)}</strong></div>`;
   document.querySelector("#owner-income-list").innerHTML = `<div class="owner-line"><span>Rent charged</span><strong>${money(rentIncome)}</strong></div><div class="owner-line"><span>Utilities charged<small>PECO/Water split by 4, WiFi flat, Trash/Sewer charged per tenant</small></span><strong>${money(utilityIncome)}</strong></div><div class="owner-line"><span>Parking charged<small>Active driveway assignment</small></span><strong>${money(parkingIncome)}</strong></div><div class="owner-line"><span>Tenant expense charges<small>Cleaning and other expenses assigned to tenants</small></span><strong>${money(tenantExpenseIncome)}</strong></div><div class="owner-line total"><span>Total rent + utilities + parking + expenses</span><strong>${money(income)}</strong></div>`;
-  document.querySelector("#owner-tenant-table").innerHTML = tenants.map(item => `<tr><td><strong>${item.full_name}</strong></td><td>${item.unit_name}</td><td>${money(item.rent)}</td><td>${money(item.utilityCharges)}</td><td>${money(item.extraExpenses)}</td><td><strong>${money(item.totalDue)}</strong></td><td><span class="status ${item.paid ? "paid" : ""}">${item.paid ? "Received" : "Pending"}</span></td></tr>`).join("") || "<tr><td colspan='7'>No active tenants for this month.</td></tr>";
+  document.querySelector("#owner-tenant-table").innerHTML = tenants.map(item => `<tr><td><strong>${item.full_name}</strong></td><td>${item.unit_name}</td><td>${money(item.rent)}</td><td>${money(item.utilityCharges)}</td><td>${money(item.extraExpenses)}</td><td>${item.isLate ? `<span class="status" style="background:#fee;color:#c00;">Late +${money(item.lateFee)}</span>` : ""}</td><td><strong>${money(item.totalDue + (item.lateFee || 0))}</strong></td><td><span class="status ${item.paid ? "paid" : ""}">${item.paid ? "Received" : "Pending"}</span></td></tr>`).join("") || "<tr><td colspan='8'>No active tenants for this month.</td></tr>";
   renderOwnerRequests(); renderParking();
 }
 function renderOverview() {
@@ -495,7 +508,7 @@ function renderTenants() {
       <td>${money(extraExpenses)}${expenseLines.length ? `<br><small>${expenseLines.map(expense => expense.category).join(", ")}</small>` : ""}</td>
       <td><strong>${money(totalDue)}</strong></td>
       <td><span class="status ${paid ? "paid" : ""}">${paid ? "Received" : "Pending"}</span><br><small>${received || "Cash"}</small></td>
-      <td><div class="tenant-actions">${item.lease_url ? `<a class="text-link" href="${item.lease_url}" target="_blank" rel="noreferrer">Lease</a>` : ""}<button class="small-button" data-generate-bill="${item.id}">Generate bill</button>${isAdmin ? `<button class="small-button" data-edit-tenant="${item.id}">Edit</button><button class="small-button" data-tenant-credentials="${item.id}">Login</button>${item.email ? `<button class="small-button" data-email-reminder="${item.id}">Send email</button>` : ""}<button class="small-button" data-rent-id="${item.unit_id}">${paid ? "Undo cash" : "Record cash"}</button>` : ""}</div></td>
+      <td><div class="tenant-actions">${item.lease_url ? `<a class="text-link" href="${item.lease_url}" target="_blank" rel="noreferrer">Lease</a>` : ""}<button class="small-button" data-generate-bill="${item.id}">Generate bill</button>${isAdmin ? `<button class="small-button" data-edit-tenant="${item.id}">Edit</button><button class="small-button" data-tenant-credentials="${item.id}">Login</button>${item.email ? `<button class="small-button" data-email-reminder="${item.id}">Send email</button>` : ""}<button class="small-button" data-rent-id="${item.unit_id}">${paid ? "Undo cash" : "Record cash"}</button><button class="small-button" data-edit-door-code="${item.id}">Door code</button>` : ""}</div></td>
     </tr>`;
   }).join("") || "<tr><td colspan='13'>No tenants have been added yet.</td></tr>";
 }
@@ -583,11 +596,13 @@ function openModal(type) {
     utilityHistory: { title: "Correct utility history", fields: `<div class="form-grid"><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label><label class="full">Bill PDF or text file<input name="bill_file" type="file" accept="application/pdf,text/plain,.txt,.csv,image/*"></label><p class="form-message full" data-parse-status>Upload a bill to try filling the amount from the document. You can edit the amount before saving.</p></div>` },
     mortgage: { title: `Set mortgage from ${monthLabel(selectedOwnerMonth())} forward`, fields: `<div class="form-grid"><label>Monthly mortgage<input name="amount" type="number" min="0" step="0.01" value="${mortgageForMonth(selectedOwnerMonth())}" required></label><label class="full">Mortgage bill PDF or text file<input name="bill_file" type="file" accept="application/pdf,text/plain,.txt,.csv,image/*"></label><p class="form-message full" data-parse-status>This amount carries forward until you set a newer month. Upload can prefill the amount, and manual edits win.</p></div>` },
     parkingTerms: { title: "Parking terms", fields: `<div class="form-grid"><label>Default monthly charge<input name="amount" type="number" min="0" step="0.01" value="${parkingCharge()}" required></label><label class="full">Where to park<input name="location" value="${appSetting("parking_location") || "Driveway spot behind 1179 Bush St."}" required></label><label class="full">Terms and conditions<textarea name="value" required>${appSetting("parking_terms")}</textarea></label></div>` },
+    wifiDetails: { title: "WiFi details", fields: `<div class="form-grid"><label>Network name (SSID)<input name="ssid" value="${appSetting("wifi_ssid")}" required></label><label>Password<input name="password" type="password" value="${appSetting("wifi_password")}" required></label></div>` },
     parkingAssignment: { title: "Assign driveway spot", fields: `<div class="form-grid"><label>Tenant<select name="tenant_id" required>${state.tenants.filter(item => item.status !== "Ended").map(item => `<option value="${item.id}">${item.full_name} (${item.unit_name})</option>`).join("")}</select></label><label>Monthly charge<input name="amount" type="number" min="0" step="0.01" value="${parkingCharge()}" required></label><label>Start month<input name="start_month" type="month" value="${monthKey.slice(0, 7)}" required></label><label class="full">Location<input name="location" value="Driveway spot" required></label><label class="full">Terms<textarea name="terms" required>${appSetting("parking_terms")}</textarea></label></div>` },
     leaseDocument: { title: "Upload lease", fields: `<div class="form-grid"><label>Tenant<select name="tenant_id" required>${state.tenants.filter(item => item.status !== "Ended").map(item => `<option value="${item.id}">${item.full_name} (${item.unit_name})</option>`).join("")}</select></label><label>Document title<input name="title" value="Lease agreement" required></label><label>Lease start<input name="lease_start" type="date"></label><label>Lease end<input name="lease_end" type="date"></label><label class="full">Lease PDF<input name="document_file" type="file" accept="application/pdf" required></label><p class="form-message full" data-document-parse-status>Upload a text-based PDF to suggest the tenant and lease dates. Review all values before saving.</p></div>` },
     signedLease: { title: "Upload signed lease", fields: `<div class="form-grid"><p class="form-message full">Upload the completed lease PDF with your signature. The owner will be able to view the signed copy immediately.</p><label class="full">Signed lease PDF<input name="signed_file" type="file" accept="application/pdf" required></label></div>` },
     requestCost: { title: "Set request cost", fields: `<div class="form-grid"><label>Category<select name="category"><option>Repairs</option><option>Cleaning</option><option>Supplies</option><option>Maintenance</option><option>Parking</option><option>Other</option></select></label><label>Cost to tenant<input name="amount" type="number" min="0" step="0.01" required></label><label class="full">Description<input name="description" required></label></div>` },
     tenantCredentials: { title: "Tenant login", fields: `<div class="form-grid"><label>Username<input name="username" required placeholder="tenantuser123"></label><label>New password<input name="password" type="password" minlength="8" placeholder="Leave blank to keep current password"></label><p class="form-message full">Username can be a simple handle or a full email. Password updates immediately for tenant login.</p></div>` },
+    doorCode: { title: "Front door code", fields: `<div class="form-grid"><label>Entry code<input name="front_door_code" required placeholder="e.g. 1234"></label><p class="form-message full">This code is specific to this tenant's unit.</p></div>` },
     tenantMaintenanceRequest: { title: "Request maintenance", fields: `<div class="form-grid"><label>Type<select name="category"><option>Repairs</option><option>Cleaning</option><option>Supplies</option></select></label><label>Title<input name="title" required placeholder="e.g. Bathroom sink leak"></label><label class="full">Details<textarea name="detail" required placeholder="Describe what needs to be handled"></textarea></label></div>` },
     leaseCancellationRequest: { title: "Request lease cancellation", fields: `<div class="form-grid"><p class="form-message full">Lease cancellation requires a 60 day notice. The owner will review and respond inside the platform.</p><label>Requested move-out date<input name="requested_date" type="date" required></label><label class="full">Message<textarea name="detail" required placeholder="Share the reason or timing details"></textarea></label></div>` },
     parkingRequest: { title: "Request parking", fields: `<div class="form-grid"><p class="form-message full">One tenant can request one driveway spot. Default charge is ${money(parkingCharge())} per month. ${appSetting("parking_terms") || "Parking terms are not set yet."}</p><label>Requested start date<input name="requested_date" type="date" required></label><label class="full">Message<textarea name="detail" required placeholder="Vehicle details or parking needs"></textarea></label></div>` },
@@ -674,6 +689,7 @@ document.addEventListener("click", async event => {
   const editUtilityHistory = event.target.closest("[data-edit-utility-history]"); if (editUtilityHistory) { const item = state.utilityHistory.find(entry => entry.id === editUtilityHistory.dataset.editUtilityHistory); openModal("utilityHistory"); document.querySelector("[name=amount]").value = item.amount; document.querySelector("#entry-form").dataset.id = item.id; }
   const editTenant = event.target.closest("[data-edit-tenant]"); if (editTenant) { const item = state.tenants.find(entry => entry.id === editTenant.dataset.editTenant); openModal("tenant"); Object.entries(item).forEach(([key, value]) => { const input = document.querySelector(`[name=${key}]`); if (input) input.value = value || ""; }); const monthRent = state.rentHistory.find(entry => entry.month === selectedTenantMonth() && entry.unit_id === item.unit_id); if (monthRent) document.querySelector("[name=monthly_rent]").value = monthRent.rent; document.querySelector("#entry-form").dataset.id = item.id; document.querySelector("#entry-form").dataset.leaseDocument = item.lease_document || ""; }
   const credentialsButton = event.target.closest("[data-tenant-credentials]"); if (credentialsButton) { const item = state.tenants.find(entry => entry.id === credentialsButton.dataset.tenantCredentials); openModal("tenantCredentials"); document.querySelector("[name=username]").value = loginUsername(item.email) || item.full_name.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 24); document.querySelector("#entry-form").dataset.id = item.id; }
+  const editDoorCode = event.target.closest("[data-edit-door-code]"); if (editDoorCode) { const item = state.tenants.find(entry => entry.id === editDoorCode.dataset.editDoorCode); openModal("doorCode"); document.querySelector("[name=front_door_code]").value = item.front_door_code || ""; document.querySelector("#entry-form").dataset.id = item.id; }
   const requestCost = event.target.closest("[data-request-cost]"); if (requestCost) { const item = state.tenantRequests.find(entry => entry.id === requestCost.dataset.requestCost); openModal("requestCost"); document.querySelector("[name=category]").value = item.category || (item.request_type === "parking" ? "Parking" : "Repairs"); document.querySelector("[name=amount]").value = item.cost || ""; document.querySelector("[name=description]").value = `${requestLabels[item.request_type]}: ${item.title}`; document.querySelector("#entry-form").dataset.id = item.id; }
   const resolveRequest = event.target.closest("[data-resolve-request]"); if (resolveRequest) { const item = state.tenantRequests.find(entry => entry.id === resolveRequest.dataset.resolveRequest); const { error } = await supabase.from("tenant_requests").update({ status:item.status === "Resolved" ? "Open" : "Resolved" }).eq("id", item.id); if (error) alert(error.message); else await loadData(); }
   const endParking = event.target.closest("[data-end-parking]"); if (endParking) { const item = state.parkingAssignments.find(entry => entry.id === endParking.dataset.endParking); const updates = item.active ? { active:false, end_month:monthKey } : { active:true, end_month:null }; const { error } = await supabase.from("parking_assignments").update(updates).eq("id", item.id); if (error) alert(error.message); else await loadData(); }
@@ -826,6 +842,19 @@ document.querySelector("#entry-form").addEventListener("submit", async event => 
     try { billDocument = await uploadBillFile(data.get("bill_file"), `mortgage/${month}`) || billDocument; } catch (error) { alert(error.message); return; }
     const record = { effective_month:month, amount:Number(data.get("amount")), bill_document:billDocument };
     const { error } = await supabase.from("mortgage_schedule").upsert(record, { onConflict:"effective_month" });
+    if (error) { alert(error.message); return; }
+    modal.close(); await loadData(); return;
+  }
+  if (type === "wifiDetails") {
+    const records = [{ key:"wifi_ssid", value:data.get("ssid"), updated_at:new Date().toISOString() }, { key:"wifi_password", value:data.get("password"), updated_at:new Date().toISOString() }];
+    const { error } = await supabase.from("app_settings").upsert(records);
+    if (error) { alert(error.message); return; }
+    modal.close(); await loadData(); return;
+  }
+  if (type === "doorCode") {
+    const tenantId = form.dataset.id;
+    const frontDoorCode = data.get("front_door_code");
+    const { error } = await supabase.from("tenants").update({ front_door_code: frontDoorCode }).eq("id", tenantId);
     if (error) { alert(error.message); return; }
     modal.close(); await loadData(); return;
   }

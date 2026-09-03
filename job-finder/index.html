@@ -1,90 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HireLift | Hiring Managers</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HireLift | Outreach workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="page-shell">
-      <header class="topbar">
-        <div class="brand-block">
-          <div class="brand-mark">H</div>
-          <div>
-            <p class="eyebrow">Targeted hiring</p>
-            <h1>HireLift</h1>
-          </div>
-        </div>
+    <section id="auth-screen" class="auth-screen">
+      <div class="auth-art"><div class="auth-orbit orbit-one"></div><div class="auth-orbit orbit-two"></div><div class="auth-mark">H</div><p class="eyebrow">A calmer way to reach out</p><h1>Build the right<br /><span>conversations.</span></h1><p>Keep your network close, make every message personal, and turn good introductions into real opportunities.</p><div class="auth-proof"><span class="avatar avatar-lime">SC</span><span class="avatar avatar-coral">AM</span><span class="avatar avatar-blue">JL</span><b>Join 2,400+ thoughtful networkers</b></div></div>
+      <div class="auth-card"><div class="auth-card-top"><span class="auth-logo">H</span><span class="auth-help">Need help?</span></div><p class="eyebrow">Welcome back</p><h2>Sign in to HireLift</h2><p class="auth-subtitle">Your outreach workspace, ready when you are.</p><form id="login-form"><label class="field-label" for="login-email">Email address</label><input id="login-email" type="email" placeholder="you@example.com" autocomplete="email" required /><label class="field-label" for="login-password">Password <a href="#" id="forgot-password">Forgot?</a></label><input id="login-password" type="password" placeholder="Enter your password" autocomplete="current-password" required /><button class="auth-button" type="submit">Sign in <span>↗</span></button></form><div class="auth-divider"><span>or</span></div><button id="demo-login" class="social-button" type="button"><span class="demo-dot">✦</span> Continue with demo workspace</button><p class="auth-foot">Don't have an account? <button id="signup-button" type="button">Create one</button></p><p id="auth-message" class="auth-message" role="status"></p></div>
+    </section>
+    <div class="app-shell">
+      <aside class="app-sidebar">
+        <div class="brand-block"><div class="brand-mark">H</div><div><strong>HireLift</strong><span>outreach OS</span></div></div>
+        <div class="workspace-switcher"><span class="avatar avatar-lime">SG</span><span><b>Sushmit's workspace</b><small>Personal workspace</small></span><span class="chevron">⌄</span></div>
+        <nav class="main-nav" aria-label="Main navigation">
+          <p class="nav-label">Workspace</p>
+          <button class="nav-item active" type="button" data-view="Inbox"><span class="nav-icon">◉</span>Inbox <b class="nav-count">4</b></button>
+          <button class="nav-item" type="button" data-view="Contacts"><span class="nav-icon">◎</span>Contacts <b class="nav-count">6</b></button>
+          <button class="nav-item" type="button" data-view="Sequences"><span class="nav-icon">↗</span>Sequences</button>
+          <button class="nav-item" type="button" data-view="Templates"><span class="nav-icon">▤</span>Templates</button>
+          <p class="nav-label nav-label-spaced">Manage</p>
+          <button class="nav-item" type="button" data-view="Analytics"><span class="nav-icon">◒</span>Analytics</button>
+          <button class="nav-item" type="button" data-view="Settings"><span class="nav-icon">⚙</span>Settings</button>
+          <button id="linkedin-button" class="connect-linkedin" type="button"><span>in</span> Connect LinkedIn <b>↗</b></button>
+        </nav>
+        <div class="sidebar-bottom"><div class="usage-row"><span>Monthly outreach</span><b>24 / 100</b></div><div class="progress"><span></span></div><button class="upgrade-button" type="button">Upgrade workspace <span>↗</span></button><div class="profile-row"><span class="avatar avatar-coral">SG</span><span><b>Sushmit Gujar</b><small>Free plan</small></span><span class="more">•••</span></div></div>
+      </aside>
 
-        <div class="toolbar">
-          <button class="ghost-button">Saved profiles <span id="saved-count">0</span></button>
-        </div>
-      </header>
+      <main class="main-content">
+        <header class="topbar"><div><p class="eyebrow">Friday, August 28, 2026</p><h1 id="page-title">Good morning, Sushmit <span>✦</span></h1></div><div class="top-actions"><button class="icon-button" type="button" aria-label="Notifications">♢<i></i></button><button class="help-button" type="button">? <span>Help center</span></button><button class="user-avatar avatar avatar-coral" type="button">SG</button></div></header>
+        <section class="stats-grid" aria-label="Outreach overview"><div class="stat-card"><span class="stat-icon ink">↗</span><div><small>Messages sent</small><strong id="sent-count">24</strong><em>↑ 18% <span>vs last month</span></em></div></div><div class="stat-card"><span class="stat-icon mint">◎</span><div><small>Open rate</small><strong>68.4%</strong><em>↑ 6.2% <span>vs last month</span></em></div></div><div class="stat-card"><span class="stat-icon peach">♡</span><div><small>Positive replies</small><strong id="reply-count">8</strong><em>↑ 12% <span>vs last month</span></em></div></div><div class="stat-card"><span class="stat-icon lavender">◷</span><div><small>Avg. response time</small><strong>18h</strong><em class="neutral">Across 6 contacts</em></div></div></section>
 
-      <main class="layout">
-        <aside class="sidebar panel">
-          <div class="section-header">
-            <h2>Filters</h2>
-            <button id="reset-filters" class="link-button" type="button">Reset</button>
-          </div>
-
-          <label class="field-label" for="keyword-search">Search</label>
-          <input id="keyword-search" type="text" placeholder="AI, product, growth..." />
-
-          <label class="field-label" for="location-filter">Location</label>
-          <select id="location-filter">
-            <option value="all">Anywhere</option>
-            <option value="Remote">Remote</option>
-            <option value="Hybrid">Hybrid</option>
-            <option value="On-site">On-site</option>
-          </select>
-
-          <label class="field-label" for="function-filter">Hiring focus</label>
-          <select id="function-filter">
-            <option value="all">All functions</option>
-            <option value="Engineering">Engineering</option>
-            <option value="Product">Product</option>
-            <option value="Design">Design</option>
-            <option value="Marketing">Marketing</option>
-            <option value="Sales">Sales</option>
-          </select>
-
-          <label class="field-label" for="experience-filter">Experience</label>
-          <select id="experience-filter">
-            <option value="all">All levels</option>
-            <option value="Entry">Entry</option>
-            <option value="Mid">Mid</option>
-            <option value="Senior">Senior</option>
-            <option value="Leadership">Leadership</option>
-          </select>
-
-          <label class="field-label" for="response-filter">Response window</label>
-          <input id="response-filter" type="range" min="12" max="96" step="12" value="12" />
-          <div class="salary-value">Within 12h</div>
-        </aside>
-
-        <section class="results panel">
-          <div class="section-header result-header">
-            <div>
-              <p class="eyebrow">Live hiring posts</p>
-              <h2 id="results-title">Top profiles</h2>
-            </div>
-            <div id="results-count" class="results-count">0 profiles</div>
+        <section class="workspace-grid">
+          <div class="inbox-panel panel-card">
+            <div class="panel-heading"><div><p class="eyebrow">Your network</p><h2 id="view-heading">Contacts</h2></div><button class="primary-button" id="new-contact-button" type="button"><span>＋</span> Add contact</button></div>
+            <div class="tab-row"><button class="tab active" type="button" data-filter="all">All contacts <span>6</span></button><button class="tab" type="button" data-filter="saved">Saved <span id="saved-count">0</span></button><button class="tab" type="button" data-filter="replied">Replied <span>2</span></button><button class="tab" type="button" data-filter="uncontacted">Not contacted <span>4</span></button></div>
+            <div class="list-toolbar"><label class="search-box"><span>⌕</span><input id="keyword-search" type="search" placeholder="Search name, role or company..." /></label><select id="sort-filter" aria-label="Sort contacts"><option value="match">Best match</option><option value="recent">Recently active</option><option value="response">Fastest response</option></select><button class="filter-button" type="button" aria-label="More filters">☷</button></div>
+            <div class="select-row"><label><input id="select-all" type="checkbox" /> <span>Select all</span></label><span id="results-count">6 contacts</span><button id="reset-filters" class="clear-button" type="button">Clear</button></div>
+            <div id="jobs-list" class="contact-list" aria-live="polite"></div>
           </div>
 
-          <div id="jobs-list" class="jobs-list" aria-live="polite"></div>
+          <aside class="composer-panel panel-card"><div class="composer-header"><div><p class="eyebrow">Compose outreach</p><h2>New message</h2></div><button class="icon-button close-button" type="button" aria-label="Close composer">×</button></div><div id="selected-contact" class="recipient-card"></div><div class="composer-body"><label class="field-label" for="template-select">Start with a template</label><select id="template-select"><option value="warm">Warm introduction</option><option value="role">Specific role inquiry</option><option value="followup">Thoughtful follow-up</option></select><div class="message-toolbar"><span>Message</span><div><button id="first-name-button" class="tool-button" type="button">＋ First name</button><button id="company-button" class="tool-button" type="button">＋ Company</button></div></div><textarea id="message-input" rows="10" spellcheck="true"></textarea><div class="character-row"><span id="character-count">0 characters</span><span>✦ Personalization ready</span></div><label class="sequence-toggle"><input id="sequence-toggle" type="checkbox" checked /><span class="toggle"></span><span><b>Add to follow-up sequence</b><small>Send a gentle follow-up in 4 days</small></span></label><div class="send-row"><button id="schedule-button" class="secondary-button" type="button">◷ Schedule</button><button id="send-button" class="send-button" type="button">Send message <span>↗</span></button></div><p class="composer-note">Messages are sent from your connected LinkedIn account.</p></div></aside>
         </section>
-
-        <aside class="detail panel">
-          <div id="job-detail" class="job-detail"></div>
-        </aside>
       </main>
     </div>
-
+    <div id="toast" class="toast" role="status"></div>
+    <div id="linkedin-modal" class="modal-backdrop" hidden><div class="linkedin-modal"><button id="linkedin-close" class="modal-close" type="button" aria-label="Close">×</button><span class="linkedin-logo">in</span><p class="eyebrow">Account connection</p><h2>Connect LinkedIn</h2><p>Link your account to personalize outreach and keep your conversations in one place.</p><div class="connection-note"><span>●</span><span><b>Secure OAuth connection</b><small>You will be redirected to LinkedIn to approve access.</small></span></div><button id="linkedin-oauth" class="auth-button" type="button">Continue to LinkedIn <span>↗</span></button><small class="modal-foot">LinkedIn credentials are never stored by HireLift.</small></div></div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
     <script src="script.js"></script>
   </body>
 </html>

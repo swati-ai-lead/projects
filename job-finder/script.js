@@ -1,401 +1,139 @@
 const profiles = [
-  {
-    id: 1,
-    name: 'Maya Chen',
-    title: 'VP of Engineering',
-    company: 'Northstar Labs',
-    location: 'Remote',
-    function: 'Engineering',
-    experience: 'Leadership',
-    responseHours: 12,
-    match: 96,
-    date: 'Active today',
-    tags: ['AI product', 'Platform', 'Hiring manager'],
-    summary: 'Building the next generation of AI workflows for operations teams and hiring product-minded engineers.',
-    description: 'We are scaling our platform team and looking for builders who care deeply about systems, customer experience, and high-leverage product work. The ideal candidate is collaborative, metrics-driven, and comfortable with ambiguity.',
-    lookingFor: [
-      'Senior engineers with strong product instincts and high ownership.',
-      'Builders who can move from idea to shipped customer value quickly.',
-      'People who enjoy mentoring teammates and improving team velocity.'
-    ],
-    profile: [
-      'Led product and platform teams across B2B SaaS environments.',
-      'Currently hiring for frontend, backend, and ML-oriented engineers.',
-      'Strong focus on design quality, product thinking, and customer outcomes.'
-    ]
-  },
-  {
-    id: 2,
-    name: 'Ava Brooks',
-    title: 'Head of Product',
-    company: 'Asteria Health',
-    location: 'Hybrid',
-    function: 'Product',
-    experience: 'Senior',
-    responseHours: 24,
-    match: 91,
-    date: 'Posted 2h ago',
-    tags: ['UX research', 'Healthtech', 'Growth'],
-    summary: 'Hiring product leads who can rethink patient workflows and turn research into high-impact features.',
-    description: 'We are improving the patient onboarding experience and need a product leader who can translate user pain points into crisp strategy, measurable outcomes, and high-quality execution with design and engineering partners.',
-    lookingFor: [
-      'Product thinkers with strong customer empathy and analytical rigor.',
-      'Background in healthcare or complex service workflows.',
-      'Comfort leading cross-functional prioritization and roadmap trade-offs.'
-    ],
-    profile: [
-      'Building enterprise B2B and patient experience improvements.',
-      'Looking for a cross-functional PM with strong discovery skills.',
-      'Cares deeply about measurable product outcomes and customer trust.'
-    ]
-  },
-  {
-    id: 3,
-    name: 'Nolan Price',
-    title: 'Director of Growth',
-    company: 'Beacon Forge',
-    location: 'Remote',
-    function: 'Marketing',
-    experience: 'Leadership',
-    responseHours: 48,
-    match: 88,
-    date: 'Active this week',
-    tags: ['Demand gen', 'Lifecycle', 'AI marketing'],
-    summary: 'Hiring marketers and demand leaders who can scale growth loops with AI-assisted experimentation.',
-    description: 'Our growth function is expanding to support the launch of an AI-powered workflow platform. We are hiring people who can blend experimentation, lifecycle design, and product marketing into a clear customer narrative.',
-    lookingFor: [
-      'Talent that can connect acquisition strategy to retention metrics.',
-      'Operators with strong experimentation and messaging instincts.',
-      'People who can translate technical value into business outcomes.'
-    ],
-    profile: [
-      'Supportive leadership team with strong investment in creative testing.',
-      'Hiring across lifecycle, SEO, and product marketing functions.',
-      'Interested in strong communicators and cross-functional operators.'
-    ]
-  },
-  {
-    id: 4,
-    name: 'Elena Vargas',
-    title: 'Design Director',
-    company: 'Quanta Retail',
-    location: 'On-site',
-    function: 'Design',
-    experience: 'Leadership',
-    responseHours: 36,
-    match: 86,
-    date: 'Posted yesterday',
-    tags: ['Systems design', 'Brand', 'UX'],
-    summary: 'Looking for design leaders who can shape storytelling, systems, and product experiences across retail channels.',
-    description: 'We want a design leader who can bring a strong point of view around customer experience while scaling approachable systems across teams. This role blends product thinking, design operations, and brand storytelling.',
-    lookingFor: [
-      'Design leaders with portfolio depth in product and brand design.',
-      'Comfortable partnering with product and engineering leaders.',
-      'Strong storytelling, facilitation, and systems thinking ability.'
-    ],
-    profile: [
-      'Modern retail team with a strong focus on customer experience.',
-      'Hiring for design systems and product design leadership.',
-      'Values craft, clarity, and thoughtful collaboration.'
-    ]
-  },
-  {
-    id: 5,
-    name: 'Samir Patel',
-    title: 'Founding Recruiter',
-    company: 'Velvet Grid',
-    location: 'Remote',
-    function: 'Sales',
-    experience: 'Mid',
-    responseHours: 16,
-    match: 93,
-    date: 'Active now',
-    tags: ['B2B sales', 'Pipeline', 'Enterprise'],
-    summary: 'Hiring relationship-first sales talent for creator-focused enterprise accounts and partner channels.',
-    description: 'We are building a sharp, founder-led sales motion for a high-velocity startup. We care most about curiosity, grit, and the ability to build trust with customers while solving meaningful business problems.',
-    lookingFor: [
-      'Sales talent with enterprise or SaaS experience.',
-      'Strong discovery and consultative selling instincts.',
-      'A bias toward relationship building and multi-threaded pipeline creation.'
-    ],
-    profile: [
-      'Early-stage growth team optimizing outbound and channel sales.',
-      'Open to product-minded sales operators who enjoy working closely with founders.',
-      'Strong interest in candidate quality and long-term retention.'
-    ]
-  },
-  {
-    id: 6,
-    name: 'Jordan Lee',
-    title: 'Principal ML Engineer',
-    company: 'Signal Loop',
-    location: 'Hybrid',
-    function: 'Engineering',
-    experience: 'Leadership',
-    responseHours: 24,
-    match: 90,
-    date: 'Posted 1d ago',
-    tags: ['ML systems', 'MLOps', 'Recommendations'],
-    summary: 'Looking for senior machine learning engineers to build personalization systems that shape customer outcomes.',
-    description: 'We are expanding our ML platform with a focus on high-impact recommendation and personalization products. The right candidate will be highly hands-on, collaborative, and able to connect technical experimentation to business value.',
-    lookingFor: [
-      'Engineers with practical ML production experience and model deployment expertise.',
-      'People who care about experimentation quality and thoughtful evaluation.',
-      'Strong communication skills across product, engineering, and leadership teams.'
-    ],
-    profile: [
-      'Focused on product-scale recommendation and personalization systems.',
-      'Strong focus on practical MLOps and observability in production.',
-      'Seeks thoughtful collaborators who can operate across ambiguity.'
-    ]
-  }
+  { id: 1, name: 'Maya Chen', title: 'VP of Engineering', company: 'Northstar Labs', function: 'Engineering', match: 96, lastSeen: 'Active today', tone: 'tone-a', tags: ['AI product', 'Platform'], status: 'uncontacted' },
+  { id: 2, name: 'Ava Brooks', title: 'Head of Product', company: 'Asteria Health', function: 'Product', match: 91, lastSeen: 'Active 2h ago', tone: 'tone-b', tags: ['UX research', 'Healthtech'], status: 'replied' },
+  { id: 3, name: 'Nolan Price', title: 'Director of Growth', company: 'Beacon Forge', function: 'Marketing', match: 88, lastSeen: 'Active this week', tone: 'tone-c', tags: ['Demand gen', 'Lifecycle'], status: 'uncontacted' },
+  { id: 4, name: 'Elena Vargas', title: 'Design Director', company: 'Quanta Retail', function: 'Design', match: 86, lastSeen: 'Active yesterday', tone: 'tone-d', tags: ['Systems design', 'Brand'], status: 'uncontacted' },
+  { id: 5, name: 'Samir Patel', title: 'Founding Recruiter', company: 'Velvet Grid', function: 'Sales', match: 93, lastSeen: 'Active now', tone: 'tone-e', tags: ['B2B sales', 'Enterprise'], status: 'uncontacted' },
+  { id: 6, name: 'Jordan Lee', title: 'Principal ML Engineer', company: 'Signal Loop', function: 'Engineering', match: 90, lastSeen: 'Active 1d ago', tone: 'tone-f', tags: ['ML systems', 'MLOps'], status: 'replied' }
 ];
 
-const state = {
-  query: '',
-  location: 'all',
-  function: 'all',
-  experience: 'all',
-  responseHours: 12,
-  saved: new Set(),
-  selectedId: profiles[0].id
+const templates = {
+  warm: 'Hi {{firstName}},\n\nI came across your work at {{company}} and wanted to reach out. I am exploring my next opportunity in {{function}} and your team stood out for the kind of thoughtful work you are doing.\n\nWould you be open to a quick conversation about what you are building and where I might be able to contribute?\n\nBest,\nSushmit',
+  role: 'Hi {{firstName}},\n\nI noticed {{company}} is growing its {{function}} team. I would love to learn more about the problems you are solving and whether my background could be a fit for the team.\n\nDo you have 15 minutes for a quick introduction next week?\n\nBest,\nSushmit',
+  followup: 'Hi {{firstName}},\n\nJust bringing this back to the top of your inbox in case it got buried. I am still very interested in the work at {{company}} and would be glad to connect whenever timing is right.\n\nBest,\nSushmit'
 };
 
-const elements = {
-  keywordSearch: document.querySelector('#keyword-search'),
-  locationFilter: document.querySelector('#location-filter'),
-  functionFilter: document.querySelector('#function-filter'),
-  experienceFilter: document.querySelector('#experience-filter'),
-  responseFilter: document.querySelector('#response-filter'),
-  responseValue: document.querySelector('.salary-value'),
-  jobsList: document.querySelector('#jobs-list'),
-  resultsCount: document.querySelector('#results-count'),
-  resultsTitle: document.querySelector('#results-title'),
-  savedCount: document.querySelector('#saved-count'),
-  detail: document.querySelector('#job-detail'),
-  resetFilters: document.querySelector('#reset-filters')
-};
+const savedIds = JSON.parse(localStorage.getItem('hirelift-saved') || '[]');
+const state = { selectedId: 1, query: '', filter: 'all', sort: 'match', saved: new Set(savedIds), sent: Number(localStorage.getItem('hirelift-sent') || 24) };
+const $ = (selector) => document.querySelector(selector);
+const elements = { list: $('#jobs-list'), search: $('#keyword-search'), sort: $('#sort-filter'), selected: $('#selected-contact'), message: $('#message-input'), template: $('#template-select'), chars: $('#character-count'), results: $('#results-count'), savedCount: $('#saved-count'), sentCount: $('#sent-count'), toast: $('#toast') };
 
-function formatMatch(value) {
-  return `${value}% match`;
-}
-
-function getFilteredProfiles() {
-  return profiles.filter((profile) => {
-    const matchesQuery =
-      state.query === '' ||
-      [profile.name, profile.title, profile.company, profile.summary, ...profile.tags]
-        .join(' ')
-        .toLowerCase()
-        .includes(state.query.toLowerCase());
-
-    const matchesLocation = state.location === 'all' || profile.location === state.location;
-    const matchesFunction = state.function === 'all' || profile.function === state.function;
-    const matchesExperience = state.experience === 'all' || profile.experience === state.experience;
-    const matchesResponse = profile.responseHours <= state.responseHours;
-
-    return matchesQuery && matchesLocation && matchesFunction && matchesExperience && matchesResponse;
+function initials(name) { return name.split(' ').map((part) => part[0]).join(''); }
+function selectedProfile() { return profiles.find((profile) => profile.id === state.selectedId) || profiles[0]; }
+function personalize(message, profile = selectedProfile()) { return message.replaceAll('{{firstName}}', profile.name.split(' ')[0]).replaceAll('{{company}}', profile.company).replaceAll('{{function}}', profile.function.toLowerCase()); }
+function filteredProfiles() {
+  const query = state.query.toLowerCase();
+  const list = profiles.filter((profile) => {
+    const matchesQuery = !query || `${profile.name} ${profile.title} ${profile.company} ${profile.function} ${profile.tags.join(' ')}`.toLowerCase().includes(query);
+    const matchesFilter = state.filter === 'all' || (state.filter === 'saved' ? state.saved.has(profile.id) : profile.status === state.filter);
+    return matchesQuery && matchesFilter;
   });
+  return list.sort((a, b) => state.sort === 'response' ? a.match - b.match : state.sort === 'recent' ? a.lastSeen.localeCompare(b.lastSeen) : b.match - a.match);
 }
-
-function renderProfiles() {
-  const filteredProfiles = getFilteredProfiles();
-
-  if (filteredProfiles.length === 0) {
-    elements.jobsList.innerHTML = `
-      <div class="job-card">
-        <p class="job-description">No hiring managers match your filters right now. Try broadening the search or resetting your filters.</p>
-      </div>
-    `;
-    elements.resultsCount.textContent = '0 profiles';
-    elements.resultsTitle.textContent = 'No matches';
-    return;
-  }
-
-  const selectedProfile = filteredProfiles.find((profile) => profile.id === state.selectedId) || filteredProfiles[0];
-  state.selectedId = selectedProfile.id;
-
-  elements.jobsList.innerHTML = filteredProfiles
-    .map(
-      (profile) => `
-        <article class="job-card ${profile.id === state.selectedId ? 'selected' : ''}" data-id="${profile.id}">
-          <div class="card-top">
-            <div class="company-stack">
-              <div class="company-badge">${profile.company.slice(0, 1)}</div>
-              <div>
-                <p class="eyebrow">${profile.company}</p>
-                <h3 class="job-title">${profile.name} • ${profile.title}</h3>
-              </div>
-            </div>
-            <button class="save-button ${state.saved.has(profile.id) ? 'saved' : ''}" data-save-id="${profile.id}" type="button" aria-label="Save profile">
-              ${state.saved.has(profile.id) ? '★' : '☆'}
-            </button>
-          </div>
-
-          <div class="meta-row">
-            <span>${profile.location}</span>
-            <span class="dot-separator">•</span>
-            <span>${profile.function}</span>
-            <span class="dot-separator">•</span>
-            <span>${profile.experience}</span>
-            <span class="dot-separator">•</span>
-            <span>${profile.date}</span>
-          </div>
-
-          <p class="job-description">${profile.summary}</p>
-
-          <div class="card-bottom">
-            <div class="tag-list">
-              ${profile.tags.map((tag) => `<span class="tag">${tag}</span>`).join('')}
-            </div>
-            <span class="salary-pill">${formatMatch(profile.match)}</span>
-          </div>
-        </article>
-      `
-    )
-    .join('');
-
-  elements.resultsCount.textContent = `${filteredProfiles.length} ${filteredProfiles.length === 1 ? 'profile' : 'profiles'}`;
-  elements.resultsTitle.textContent = filteredProfiles.length > 1 ? 'Top profiles' : 'Single profile';
-  renderDetail(selectedProfile);
-  bindCardEvents();
-  updateSavedCount();
-}
-
-function renderDetail(profile) {
-  if (!profile) {
-    elements.detail.innerHTML = '<p class="job-detail-empty">Select a profile to view the full hiring context.</p>';
-    return;
-  }
-
-  elements.detail.innerHTML = `
-    <div class="detail-card">
-      <div class="job-detail-header">
-        <div>
-          <p class="eyebrow">${profile.company}</p>
-          <h2 class="detail-title">${profile.name}</h2>
-          <p class="detail-company">${profile.title} • ${profile.location} • ${profile.function}</p>
-        </div>
-        <button class="save-button ${state.saved.has(profile.id) ? 'saved' : ''}" data-save-id="${profile.id}" type="button" aria-label="Save profile">
-          ${state.saved.has(profile.id) ? '★' : '☆'}
-        </button>
-      </div>
-
-      <div class="detail-meta">
-        <span>${profile.date}</span>
-        <span>•</span>
-        <span>Responds within ${profile.responseHours}h</span>
-        <span>•</span>
-        <span>${formatMatch(profile.match)}</span>
-      </div>
-
-      <div class="job-action-row">
-        <span class="salary-pill">${profile.experience}</span>
-        <button class="apply-button" type="button">Message</button>
-      </div>
-
-      <div class="section-block">
-        <h3>Post</h3>
-        <p class="job-description">${profile.description}</p>
-      </div>
-
-      <div class="section-block">
-        <h3>What they are looking for</h3>
-        <ul>
-          ${profile.lookingFor.map((item) => `<li>${item}</li>`).join('')}
-        </ul>
-      </div>
-
-      <div class="section-block">
-        <h3>Hiring context</h3>
-        <ul>
-          ${profile.profile.map((item) => `<li>${item}</li>`).join('')}
-        </ul>
-      </div>
-    </div>
-  `;
-
-  elements.detail.querySelectorAll('[data-save-id]').forEach((button) => {
-    button.addEventListener('click', () => toggleSaved(Number(button.dataset.saveId)));
-  });
-}
-
-function bindCardEvents() {
-  elements.jobsList.querySelectorAll('.job-card').forEach((card) => {
-    card.addEventListener('click', (event) => {
-      if (event.target.closest('[data-save-id]')) {
-        return;
-      }
-      state.selectedId = Number(card.dataset.id);
-      renderProfiles();
-    });
-  });
-
-  elements.jobsList.querySelectorAll('[data-save-id]').forEach((button) => {
-    button.addEventListener('click', (event) => {
-      event.stopPropagation();
-      toggleSaved(Number(button.dataset.saveId));
-    });
-  });
-}
-
-function toggleSaved(profileId) {
-  if (state.saved.has(profileId)) {
-    state.saved.delete(profileId);
-  } else {
-    state.saved.add(profileId);
-  }
-
-  renderProfiles();
-}
-
-function updateSavedCount() {
+function renderList() {
+  const list = filteredProfiles();
+  elements.results.textContent = `${list.length} ${list.length === 1 ? 'contact' : 'contacts'}`;
   elements.savedCount.textContent = state.saved.size;
+  elements.list.innerHTML = list.length ? list.map((profile) => `<article class="contact-row ${profile.id === state.selectedId ? 'selected' : ''}" data-id="${profile.id}"><input class="contact-check" type="checkbox" aria-label="Select ${profile.name}" data-check-id="${profile.id}" /><span class="contact-avatar ${profile.tone}">${initials(profile.name)}</span><div class="contact-main"><div class="contact-name">${profile.name}</div><div class="contact-role">${profile.title} · ${profile.company}</div><div class="contact-tags">${profile.tags.map((tag) => `<span class="mini-tag">${tag}</span>`).join('')}</div></div><div class="contact-status"><span class="match">${profile.match}% match</span><span class="last-seen">${profile.lastSeen}</span></div><div class="row-actions"><button type="button" class="save-contact ${state.saved.has(profile.id) ? 'saved' : ''}" data-save-id="${profile.id}" aria-label="Save ${profile.name}">${state.saved.has(profile.id) ? '★' : '☆'}</button><button type="button" class="more-contact" aria-label="More actions">•••</button></div></article>`).join('') : '<div class="empty-state">No contacts match your current view.</div>';
+  elements.list.querySelectorAll('.contact-row').forEach((row) => row.addEventListener('click', (event) => { if (event.target.closest('button, input')) return; state.selectedId = Number(row.dataset.id); renderList(); renderComposer(); }));
+  elements.list.querySelectorAll('[data-save-id]').forEach((button) => button.addEventListener('click', (event) => { event.stopPropagation(); toggleSaved(Number(button.dataset.saveId)); }));
+}
+function renderComposer() { const profile = selectedProfile(); elements.selected.innerHTML = `<span class="contact-avatar ${profile.tone}">${initials(profile.name)}</span><span><b>${profile.name}</b><small>${profile.title} at ${profile.company}</small></span><span class="recipient-label">To</span>`; elements.message.value = personalize(templates[elements.template.value], profile); updateCharacterCount(); }
+function toggleSaved(id) { state.saved.has(id) ? state.saved.delete(id) : state.saved.add(id); localStorage.setItem('hirelift-saved', JSON.stringify([...state.saved])); renderList(); showToast(state.saved.has(id) ? 'Contact saved to your list' : 'Contact removed from saved'); }
+function updateCharacterCount() { elements.chars.textContent = `${elements.message.value.length} characters`; }
+function showToast(message) { elements.toast.textContent = message; elements.toast.classList.add('show'); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => elements.toast.classList.remove('show'), 2800); }
+function insertToken(token) { const start = elements.message.selectionStart; elements.message.value = `${elements.message.value.slice(0, start)}${token}${elements.message.value.slice(elements.message.selectionEnd)}`; elements.message.focus(); elements.message.selectionStart = elements.message.selectionEnd = start + token.length; updateCharacterCount(); }
+
+elements.search.addEventListener('input', (event) => { state.query = event.target.value.trim(); renderList(); });
+elements.sort.addEventListener('change', (event) => { state.sort = event.target.value; renderList(); });
+elements.template.addEventListener('change', renderComposer);
+elements.message.addEventListener('input', updateCharacterCount);
+$('#first-name-button').addEventListener('click', () => insertToken('{{firstName}}'));
+$('#company-button').addEventListener('click', () => insertToken('{{company}}'));
+document.querySelectorAll('.tab').forEach((tab) => tab.addEventListener('click', () => { document.querySelectorAll('.tab').forEach((item) => item.classList.remove('active')); tab.classList.add('active'); state.filter = tab.dataset.filter; renderList(); }));
+document.querySelectorAll('.nav-item').forEach((item) => item.addEventListener('click', () => { document.querySelectorAll('.nav-item').forEach((nav) => nav.classList.remove('active')); item.classList.add('active'); const view = item.dataset.view; $('#view-heading').textContent = view === 'Inbox' ? 'Contacts' : view; showToast(`${view} view selected`); }));
+$('#reset-filters').addEventListener('click', () => { state.query = ''; state.filter = 'all'; elements.search.value = ''; document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.filter === 'all')); renderList(); });
+$('#select-all').addEventListener('change', (event) => document.querySelectorAll('.contact-check').forEach((check) => { check.checked = event.target.checked; }));
+async function persistMessage(status) {
+  if (!database) return;
+  const { data: { user } } = await database.auth.getUser();
+  if (!user) return;
+  await database.from('messages').insert({ user_id: user.id, contact_id: selectedProfile().id, body: elements.message.value, status });
 }
 
-function bindFilters() {
-  elements.keywordSearch.addEventListener('input', (event) => {
-    state.query = event.target.value.trim();
-    renderProfiles();
-  });
+$('#send-button').addEventListener('click', async () => { if (!elements.message.value.trim()) return showToast('Add a message before sending'); state.sent += 1; localStorage.setItem('hirelift-sent', state.sent); elements.sentCount.textContent = state.sent; await persistMessage('sent'); showToast(`Message sent to ${selectedProfile().name}`); });
+$('#schedule-button').addEventListener('click', async () => { await persistMessage('scheduled'); showToast(`Message scheduled for ${selectedProfile().name}`); });
+$('#new-contact-button').addEventListener('click', () => showToast('Contact import is ready for your next connection'));
+$('.close-button').addEventListener('click', () => { $('.composer-panel').classList.toggle('composer-collapsed'); showToast('Composer toggled'); });
+$('.filter-button').addEventListener('click', () => showToast('All contacts are currently visible'));
+elements.sentCount.textContent = state.sent;
+renderList();
+renderComposer();
 
-  elements.locationFilter.addEventListener('change', (event) => {
-    state.location = event.target.value;
-    renderProfiles();
-  });
+const config = window.HIRELIFT_CONFIG || {};
+const database = config.supabaseUrl && config.supabaseAnonKey && window.supabase
+  ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey)
+  : null;
+const authScreen = $('#auth-screen');
+const appShell = $('.app-shell');
+const authMessage = $('#auth-message');
 
-  elements.functionFilter.addEventListener('change', (event) => {
-    state.function = event.target.value;
-    renderProfiles();
-  });
-
-  elements.experienceFilter.addEventListener('change', (event) => {
-    state.experience = event.target.value;
-    renderProfiles();
-  });
-
-  elements.responseFilter.addEventListener('input', (event) => {
-    state.responseHours = Number(event.target.value);
-    elements.responseValue.textContent = `Within ${state.responseHours}h`;
-    renderProfiles();
-  });
-
-  elements.resetFilters.addEventListener('click', () => {
-    state.query = '';
-    state.location = 'all';
-    state.function = 'all';
-    state.experience = 'all';
-    state.responseHours = 12;
-
-    elements.keywordSearch.value = '';
-    elements.locationFilter.value = 'all';
-    elements.functionFilter.value = 'all';
-    elements.experienceFilter.value = 'all';
-    elements.responseFilter.value = '12';
-    elements.responseValue.textContent = 'Within 12h';
-    renderProfiles();
-  });
+function enterWorkspace(user = { email: 'demo@hirelift.app' }) {
+  localStorage.setItem('hirelift-session', JSON.stringify({ email: user.email }));
+  authScreen.classList.add('hidden');
+  appShell.classList.add('visible');
 }
 
-bindFilters();
-renderProfiles();
+function showAuthMessage(message) { authMessage.textContent = message; }
+
+$('#login-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const email = $('#login-email').value.trim();
+  const password = $('#login-password').value;
+  if (!database) {
+    showAuthMessage('Database is not configured yet. Use the demo workspace below or add Supabase credentials to config.js.');
+    return;
+  }
+  const { data, error } = await database.auth.signInWithPassword({ email, password });
+  if (error) return showAuthMessage(error.message);
+  enterWorkspace(data.user);
+});
+
+$('#signup-button').addEventListener('click', async () => {
+  if (!database) return showAuthMessage('Add your Supabase URL and anon key to config.js to enable account creation.');
+  const email = $('#login-email').value.trim();
+  const password = $('#login-password').value;
+  if (!email || password.length < 6) return showAuthMessage('Enter an email and a password with at least 6 characters.');
+  const { error } = await database.auth.signUp({ email, password });
+  showAuthMessage(error ? error.message : 'Check your email to confirm your new account.');
+});
+
+$('#demo-login').addEventListener('click', () => enterWorkspace());
+$('#forgot-password').addEventListener('click', async (event) => {
+  event.preventDefault();
+  if (!database) return showAuthMessage('Password reset becomes available after Supabase is configured.');
+  const email = $('#login-email').value.trim();
+  if (!email) return showAuthMessage('Enter your email address first.');
+  const { error } = await database.auth.resetPasswordForEmail(email);
+  showAuthMessage(error ? error.message : 'Password reset instructions sent.');
+});
+
+$('#linkedin-button').addEventListener('click', () => { $('#linkedin-modal').hidden = false; });
+$('#linkedin-oauth').addEventListener('click', () => {
+  if (!config.linkedInClientId) return showToast('Add your LinkedIn Client ID to config.js to enable OAuth');
+  const redirectUri = `${window.location.origin}/linkedin-callback`;
+  const params = new URLSearchParams({ response_type: 'code', client_id: config.linkedInClientId, redirect_uri: redirectUri, scope: 'openid profile email' });
+  window.location.href = `https://www.linkedin.com/oauth/v2/authorization?${params}`;
+});
+$('#linkedin-close').addEventListener('click', () => { $('#linkedin-modal').hidden = true; });
+$('#linkedin-modal').addEventListener('click', (event) => { if (event.target.id === 'linkedin-modal') event.currentTarget.hidden = true; });
+
+if (database) {
+  database.auth.getSession().then(({ data }) => { if (data.session) enterWorkspace(data.session.user); });
+}
+
+if (!localStorage.getItem('hirelift-session')) {
+  authScreen.classList.remove('hidden');
+} else {
+  enterWorkspace(JSON.parse(localStorage.getItem('hirelift-session')));
+}

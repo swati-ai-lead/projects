@@ -70,6 +70,8 @@
         </div>
         <div class="history-section"><div class="section-heading"><div><p class="eyebrow">REQUESTS</p><h3>Need something handled?</h3></div><div class="button-row"><button class="small-button" data-open-modal="tenantMaintenanceRequest">Maintenance</button><button class="small-button" data-open-modal="leaseCancellationRequest">Cancel lease</button><button class="small-button" data-open-modal="parkingRequest">Parking</button></div></div><div class="request-grid" id="tenant-request-list"></div></div>
         <div class="history-section"><div class="section-heading"><div><p class="eyebrow">PARKING</p><h3>Driveway spot</h3></div></div><div class="owner-line-list" id="tenant-parking-list"></div></div>
+        <div class="history-section"><div class="section-heading"><div><p class="eyebrow">WIFI</p><h3>Network details</h3></div></div><div class="owner-line-list" id="tenant-wifi-list"></div></div>
+        <div class="history-section"><div class="section-heading"><div><p class="eyebrow">FRONT DOOR</p><h3>Entry code</h3></div></div><div class="owner-line-list" id="tenant-door-code-list"></div></div>
         <div class="history-section"><div class="section-heading"><div><p class="eyebrow">DOCUMENTS</p><h3>Lease signatures</h3></div></div><div class="request-grid" id="tenant-document-list"></div></div>
       </section>
 
@@ -129,7 +131,7 @@
       </section>
 
       <section class="view" id="tenants">
-        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">OCCUPANCY, LEASES &amp; RENT</p><h2>Tenants</h2><p>Pick a month, edit the amount in place, and save without leaving the row.</p></div><button class="primary-button" data-open-modal="tenant">+ Add tenant</button></div>
+        <div class="view-title-row"><div class="page-intro"><p class="eyebrow">OCCUPANCY, LEASES & RENT</p><h2>Tenants</h2><p>Pick a month, edit the amount in place, and save without leaving the row.</p></div><div class="button-row"><button class="primary-button" data-open-modal="tenant">+ Add tenant</button><button class="primary-button" data-open-modal="wifiDetails">WiFi details</button></div></div>
         <div class="history-controls"><label>Month<select id="tenant-month"></select></label></div>
         <div class="table-wrap"><table><thead><tr><th>Unit</th><th>Tenant</th><th>Lease term</th><th>Monthly rent</th><th>PECO</th><th>Water</th><th>Trash</th><th>Sewer</th><th>WiFi</th><th>Expenses</th><th>Total due</th><th>Rent status</th><th></th></tr></thead><tbody id="tenant-table"></tbody></table></div><p class="reminder-status" id="reminder-status"></p>
       </section>
